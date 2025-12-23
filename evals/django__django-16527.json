@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16527",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "bd366ca2aeffa869b7dbc0b0aa01caea75e6dc31",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/admin/templatetags/admin_modify.py b/django/contrib/admin/templatetags/admin_modify.py\n--- a/django/contrib/admin/templatetags/admin_modify.py\n+++ b/django/contrib/admin/templatetags/admin_modify.py\n@@ -100,7 +100,7 @@ def submit_row(context):\n                 and context.get(\"show_delete\", True)\n             ),\n             \"show_save_as_new\": not is_popup\n-            and has_change_permission\n+            and has_add_permission\n             and change\n             and save_as,\n             \"show_save_and_add_another\": can_save_and_add_another,\n",
+  "hint": "Thanks for the report. It was previously reported in #5650 and #3817, and #3817 was closed but only with a fix for \"Save and add another\" (see 825f0beda804e48e9197fcf3b0d909f9f548aa47). I rewrite this for my project: \"show_save_as_new\": not is_popup and has_add_permission # This line that I put!!! and has_change_permission and change and save_as, Do we need to check both? Checking only has_add_permission should be enough.\nReplying to Neesham: Yes, because \"Save as New\" is a save too (current object).\nOh, yes! Sorry and tanks ;-)"
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-14894",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "fdbaa58acbead5a254f2e6d597dc1ab3b947f4c6",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/svm/base.py b/sklearn/svm/base.py\n--- a/sklearn/svm/base.py\n+++ b/sklearn/svm/base.py\n@@ -287,11 +287,14 @@ def _sparse_fit(self, X, y, sample_weight, solver_type, kernel,\n         n_SV = self.support_vectors_.shape[0]\n \n         dual_coef_indices = np.tile(np.arange(n_SV), n_class)\n-        dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,\n-                                     dual_coef_indices.size / n_class)\n-        self.dual_coef_ = sp.csr_matrix(\n-            (dual_coef_data, dual_coef_indices, dual_coef_indptr),\n-            (n_class, n_SV))\n+        if not n_SV:\n+            self.dual_coef_ = sp.csr_matrix([])\n+        else:\n+            dual_coef_indptr = np.arange(0, dual_coef_indices.size + 1,\n+                                         dual_coef_indices.size / n_class)\n+            self.dual_coef_ = sp.csr_matrix(\n+                (dual_coef_data, dual_coef_indices, dual_coef_indptr),\n+                (n_class, n_SV))\n \n     def predict(self, X):\n         \"\"\"Perform regression on samples in X.\n",
+  "hint": ""
+}

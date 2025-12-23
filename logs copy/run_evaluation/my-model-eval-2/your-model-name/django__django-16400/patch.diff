@@ -1,0 +1,26 @@
+diff --git a/django/contrib/auth/management/__init__.py b/django/contrib/auth/management/__init__.py
+--- a/django/contrib/auth/management/__init__.py
++++ b/django/contrib/auth/management/__init__.py
+@@ -83,21 +83,21 @@
+         ctypes.add(ctype)
+         for perm in _get_all_permissions(klass._meta):
+             searched_perms.append((ctype, perm))
+ 
+     # Find all the Permissions that have a content_type for a model we're
+     # looking for.  We don't need to check for codenames since we already have
+     # a list of the ones we're going to create.
+     all_perms = set(
+         Permission.objects.using(using)
+         .filter(
+-            content_type__in=ctypes,
++            content_type__in=[ct.pk for ct in ctypes],
+         )
+         .values_list("content_type", "codename")
+     )
+ 
+     perms = [
+         Permission(codename=codename, name=name, content_type=ct)
+         for ct, (codename, name) in searched_perms
+         if (ct.pk, codename) not in all_perms
+     ]
+     Permission.objects.using(using).bulk_create(perms)

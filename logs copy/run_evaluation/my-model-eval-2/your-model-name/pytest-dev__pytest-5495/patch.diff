@@ -1,0 +1,66 @@
+diff --git a/src/_pytest/assertion/util.py b/src/_pytest/assertion/util.py
+--- a/src/_pytest/assertion/util.py
++++ b/src/_pytest/assertion/util.py
+@@ -253,14 +253,34 @@
+     return explanation
+ 
+ 
++def _format_bseq_item(item):
++    """Format a byte sequence item (integer ordinal) for display.
++    
++    Shows the ordinal value followed by the character representation in parentheses.
++    For printable characters: 52 ('4')
++    For escape sequences: 10 ('\\n')
++    For non-printable/non-ASCII: 128 ('\\x80')
++    """
++    # ascii() provides a safe representation that handles all characters
++    # including escape sequences and non-ASCII bytes
++    return "{} ({})".format(item, ascii(chr(item)))
++
++
+ def _compare_eq_sequence(left, right, verbose=0):
+     explanation = []
+     len_left = len(left)
+     len_right = len(right)
++    is_bytes_seq = isinstance(left, bytes) and isinstance(right, bytes)
+     for i in range(min(len_left, len_right)):
+         if left[i] != right[i]:
++            if is_bytes_seq:
++                left_repr = _format_bseq_item(left[i])
++                right_repr = _format_bseq_item(right[i])
++            else:
++                left_repr = repr(left[i])
++                right_repr = repr(right[i])
+             explanation += [
+-                "At index {} diff: {!r} != {!r}".format(i, left[i], right[i])
++                "At index {} diff: {} != {}".format(i, left_repr, right_repr)
+             ]
+             break
+     len_diff = len_left - len_right
+@@ -268,11 +288,16 @@
+     if len_diff:
+         if len_diff > 0:
+             dir_with_more = "Left"
+-            extra = saferepr(left[len_right])
++            extra_item = left[len_right]
+         else:
+             len_diff = 0 - len_diff
+             dir_with_more = "Right"
+-            extra = saferepr(right[len_left])
++            extra_item = right[len_left]
++
++        if is_bytes_seq:
++            extra = _format_bseq_item(extra_item)
++        else:
++            extra = saferepr(extra_item)
+ 
+         if len_diff == 1:
+             explanation += [
+@@ -284,6 +309,7 @@
+                 % (dir_with_more, len_diff, extra)
+             ]
+     return explanation
++
+ 
+ 
+ def _compare_eq_set(left, right, verbose=0):

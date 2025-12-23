@@ -1,0 +1,13 @@
+diff --git a/sympy/functions/elementary/complexes.py b/sympy/functions/elementary/complexes.py
+--- a/sympy/functions/elementary/complexes.py
++++ b/sympy/functions/elementary/complexes.py
+@@ -393,6 +393,9 @@
+         from sympy.functions.special.delta_functions import Heaviside
+         if arg.is_extended_real:
+             return Heaviside(arg, H0=S(1)/2) * 2 - 1
++
++    def _eval_rewrite_as_Abs(self, arg, **kwargs):
++        return arg / Abs(arg)
+ 
+     def _eval_simplify(self, **kwargs):
+         return self.func(self.args[0].factor())  # XXX include doit?

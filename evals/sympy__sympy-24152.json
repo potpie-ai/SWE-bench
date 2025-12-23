@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-24152",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "b9af885473ad7e34b5b0826cb424dd26d8934670",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/physics/quantum/tensorproduct.py b/sympy/physics/quantum/tensorproduct.py\n--- a/sympy/physics/quantum/tensorproduct.py\n+++ b/sympy/physics/quantum/tensorproduct.py\n@@ -246,9 +246,12 @@ def _eval_expand_tensorproduct(self, **hints):\n             if isinstance(args[i], Add):\n                 for aa in args[i].args:\n                     tp = TensorProduct(*args[:i] + (aa,) + args[i + 1:])\n-                    if isinstance(tp, TensorProduct):\n-                        tp = tp._eval_expand_tensorproduct()\n-                    add_args.append(tp)\n+                    c_part, nc_part = tp.args_cnc()\n+                    # Check for TensorProduct object: is the one object in nc_part, if any:\n+                    # (Note: any other object type to be expanded must be added here)\n+                    if len(nc_part) == 1 and isinstance(nc_part[0], TensorProduct):\n+                        nc_part = (nc_part[0]._eval_expand_tensorproduct(), )\n+                    add_args.append(Mul(*c_part)*Mul(*nc_part))\n                 break\n \n         if add_args:\n",
+  "hint": "Can you make a pull request with this fix?\nWill do. I haven't worked with git before, so bear with me.\r\n\r\nBut as I'm currently digging into some of the quantum package and have more and larger patches in the pipeline, it seems worth the effort to get git set up on my side. So watch out :-)"
+}

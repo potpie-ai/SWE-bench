@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13439",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "a62775e99f2a5ea3d51db7160fad783f6cd8a4c5",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/pipeline.py b/sklearn/pipeline.py\n--- a/sklearn/pipeline.py\n+++ b/sklearn/pipeline.py\n@@ -199,6 +199,12 @@ def _iter(self, with_final=True):\n             if trans is not None and trans != 'passthrough':\n                 yield idx, name, trans\n \n+    def __len__(self):\n+        \"\"\"\n+        Returns the length of the Pipeline\n+        \"\"\"\n+        return len(self.steps)\n+\n     def __getitem__(self, ind):\n         \"\"\"Returns a sub-pipeline or a single esimtator in the pipeline\n \n",
+  "hint": "None should work just as well, but perhaps you're right that len should be\nimplemented. I don't think we should implement other things from sequences\nsuch as iter, however.\n\nI think len would be good to have but I would also try to add as little as possible.\n+1\n\n>\n\nI am looking at it."
+}

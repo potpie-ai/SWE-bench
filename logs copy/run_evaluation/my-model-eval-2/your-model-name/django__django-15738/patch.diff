@@ -1,0 +1,25 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -561,12 +561,16 @@
+         new_model = to_state.apps.get_model(app_label, self.name)
+         if self.allow_migrate_model(schema_editor.connection.alias, new_model):
+             old_model = from_state.apps.get_model(app_label, self.name)
++            old_options = getattr(old_model._meta, self.option_name, set())
++            new_options = getattr(new_model._meta, self.option_name, set())
+             alter_together = getattr(schema_editor, "alter_%s" % self.option_name)
+-            alter_together(
+-                new_model,
+-                getattr(old_model._meta, self.option_name, set()),
+-                getattr(new_model._meta, self.option_name, set()),
+-            )
++            # Remove old constraints first using old_model because the field
++            # may have been changed (e.g., FK to M2M) and the new model's field
++            # doesn't have a database column anymore.
++            alter_together(old_model, old_options, new_options & old_options)
++            # Then add new constraints using new_model.
++            alter_together(new_model, new_options & old_options, new_options)
++
+ 
+     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+         return self.database_forwards(app_label, schema_editor, from_state, to_state)

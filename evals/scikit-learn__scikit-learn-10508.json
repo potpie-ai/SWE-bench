@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-10508",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "c753b77ac49e72ebc0fe5e3c2369fe628f975017",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/preprocessing/label.py b/sklearn/preprocessing/label.py\n--- a/sklearn/preprocessing/label.py\n+++ b/sklearn/preprocessing/label.py\n@@ -126,6 +126,9 @@ def transform(self, y):\n         \"\"\"\n         check_is_fitted(self, 'classes_')\n         y = column_or_1d(y, warn=True)\n+        # transform of empty array is empty array\n+        if _num_samples(y) == 0:\n+            return np.array([])\n \n         classes = np.unique(y)\n         if len(np.intersect1d(classes, self.classes_)) < len(classes):\n@@ -147,6 +150,10 @@ def inverse_transform(self, y):\n         y : numpy array of shape [n_samples]\n         \"\"\"\n         check_is_fitted(self, 'classes_')\n+        y = column_or_1d(y, warn=True)\n+        # inverse transform of empty array is empty array\n+        if _num_samples(y) == 0:\n+            return np.array([])\n \n         diff = np.setdiff1d(y, np.arange(len(self.classes_)))\n         if len(diff):\n",
+  "hint": "`le.transform([])` will trigger an numpy array of `dtype=np.float64` and you fit something which was some string.\r\n\r\n```python\r\nfrom sklearn.preprocessing import LabelEncoder                                       \r\nimport numpy as np                                                                   \r\n                                                                                     \r\nle = LabelEncoder()                                                                  \r\nX = np.array([\"a\", \"b\"])                                                             \r\nle.fit(X)                                                                            \r\nX_trans = le.transform(np.array([], dtype=X.dtype))\r\nX_trans\r\narray([], dtype=int64)\r\n```\nI would like to take it up. \nHey @maykulkarni go ahead with PR. Sorry, please don't mind my referenced commit, I don't intend to send in a PR.\r\n\r\nI would be happy to have a look over your PR once you send in (not that my review would matter much) :)"
+}

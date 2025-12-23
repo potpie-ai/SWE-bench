@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16379",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "1d0fa848e084cad62d0bb6bde3b51e4862558e57",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/core/cache/backends/filebased.py b/django/core/cache/backends/filebased.py\n--- a/django/core/cache/backends/filebased.py\n+++ b/django/core/cache/backends/filebased.py\n@@ -90,10 +90,11 @@ def _delete(self, fname):\n \n     def has_key(self, key, version=None):\n         fname = self._key_to_file(key, version)\n-        if os.path.exists(fname):\n+        try:\n             with open(fname, \"rb\") as f:\n                 return not self._is_expired(f)\n-        return False\n+        except FileNotFoundError:\n+            return False\n \n     def _cull(self):\n         \"\"\"\n",
+  "hint": ""
+}

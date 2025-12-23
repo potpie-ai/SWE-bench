@@ -1,0 +1,54 @@
+diff --git a/src/_pytest/pathlib.py b/src/_pytest/pathlib.py
+--- a/src/_pytest/pathlib.py
++++ b/src/_pytest/pathlib.py
+@@ -517,20 +517,50 @@
+     mode = ImportMode(mode)
+ 
+     path = Path(p)
+ 
+     if not path.exists():
+         raise ImportError(path)
+ 
+     if mode is ImportMode.importlib:
+         module_name = module_name_from_path(path, root)
+ 
++        # Check if module is already imported
++        if module_name in sys.modules:
++            existing_mod = sys.modules[module_name]
++            # Special case: if importing __init__.py of an already-imported package,
++            # return the existing package module
++            if path.name == "__init__.py":
++                return existing_mod
++            
++            # Validate that the existing module is from the same file
++            existing_file = existing_mod.__file__
++            if existing_file is not None:
++                # Normalize paths for comparison
++                if existing_file.endswith((".pyc", ".pyo")):
++                    existing_file = existing_file[:-1]
++                if existing_file.endswith(os.sep + "__init__.py"):
++                    existing_file = existing_file[: -(len(os.sep + "__init__.py"))]
++                
++                try:
++                    is_same = _is_same(str(path), existing_file)
++                except FileNotFoundError:
++                    is_same = False
++                
++                if is_same:
++                    # Same file, return existing module
++                    return existing_mod
++                else:
++                    # Different file, raise error
++                    raise ImportPathMismatchError(module_name, existing_file, path)
++
++
+         for meta_importer in sys.meta_path:
+             spec = meta_importer.find_spec(module_name, [str(path.parent)])
+             if spec is not None:
+                 break
+         else:
+             spec = importlib.util.spec_from_file_location(module_name, str(path))
+ 
+         if spec is None:
+             raise ImportError(f"Can't find module {module_name} at location {path}")
+         mod = importlib.util.module_from_spec(spec)

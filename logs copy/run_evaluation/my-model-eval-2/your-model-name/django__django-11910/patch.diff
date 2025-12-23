@@ -1,0 +1,18 @@
+diff --git a/django/db/migrations/autodetector.py b/django/db/migrations/autodetector.py
+--- a/django/db/migrations/autodetector.py
++++ b/django/db/migrations/autodetector.py
+@@ -927,7 +927,13 @@
+                 if remote_field_name:
+                     to_field_rename_key = rename_key + (remote_field_name,)
+                     if to_field_rename_key in self.renamed_fields:
+-                        new_field.remote_field.field_name = old_field.remote_field.field_name
++                        # Repoint both FKs to the old field if the target was
++                        # a non-PK field. This handles explicit to_field cases.
++                        # For PK fields (implicit to_field), the deconstructions
++                        # will already match since field_name == pk.name on both sides.
++                        old_remote_field_name = old_field.remote_field.field_name
++                        if old_remote_field_name != old_field.remote_field.model._meta.pk.name:
++                            new_field.remote_field.field_name = old_remote_field_name
+                 # Handle ForeignObjects which can have multiple from_fields/to_fields.
+                 from_fields = getattr(new_field, 'from_fields', None)
+                 if from_fields:

@@ -1,0 +1,225 @@
+diff --git a/test_ne_printing.py b/test_ne_printing.py
+--- a/test_ne_printing.py
++++ b/test_ne_printing.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python3
++"""Test script to check how Ne (Not Equal) is printed in C code"""
++
++from sympy import symbols, Ne, Eq, Lt, Gt, Le, Ge, ccode, Piecewise, sin
++from sympy.printing.ccode import CCodePrinter
++
++x, theta = symbols('x theta')
++
++print("Testing relational operators with ccode:")
++print("=" * 60)
++print(f"Ne(x, 0)        -> ccode: '{ccode(Ne(x, 0))}'")
++print(f"Eq(x, 0)        -> ccode: '{ccode(Eq(x, 0))}'")
++print(f"Lt(x, 0)        -> ccode: '{ccode(Lt(x, 0))}'")
++print(f"Gt(x, 0)        -> ccode: '{ccode(Gt(x, 0))}'")
++print(f"Le(x, 0)        -> ccode: '{ccode(Le(x, 0))}'")
++print(f"Ge(x, 0)        -> ccode: '{ccode(Ge(x, 0))}'")
++print()
++print("Testing with theta from the issue:")
++print(f"Ne(theta, 0)    -> ccode: '{ccode(Ne(theta, 0))}'")
++print()
++print("Testing the Piecewise from the issue:")
++result = ccode(Piecewise((sin(theta)/theta, Ne(theta, 0)), (1, True)))
++print(f"Piecewise result:\n{result}")
++print()
++print("=" * 60)
++print("Checking CCodePrinter methods:")
++printer = CCodePrinter()
++print(f"Has _print_Relational: {hasattr(printer, '_print_Relational')}")
++if hasattr(printer, '_print_Relational'):
++    print(f"  Method: {printer._print_Relational}")
++else:
++    print("  Method not found in CCodePrinter")
++    
++# Check parent classes
++print(f"\nChecking parent classes:")
++for cls in CCodePrinter.__mro__:
++    if hasattr(cls, '_print_Relational'):
++        print(f"  Found _print_Relational in: {cls.__name__}")
++        break
++else:
++    print("  _print_Relational not found in any parent class")
++
++# Check rel_op attribute
++ne_expr = Ne(x, 0)
++print(f"\nNe(x, 0) object:")
++print(f"  Type: {type(ne_expr)}")
++print(f"  rel_op: {ne_expr.rel_op}")
++print(f"  lhs: {ne_expr.lhs}")
++print(f"  rhs: {ne_expr.rhs}")
+
+diff --git a/test_relational_findings.md b/test_relational_findings.md
+--- a/test_relational_findings.md
++++ b/test_relational_findings.md
+@@ -0,0 +1,126 @@
++# Test Results: Ne (Not Equal) Relational Operator in CCodePrinter
++
++## Investigation Summary
++
++### Question
++Does `ccode(Ne(x, 0))` produce valid C code like `"x != 0"` or does it produce `"Ne(x, 0)"`?
++
++### Answer
++**It produces `"Ne(x, 0)"` - the functional notation, NOT valid C code.**
++
++## Evidence
++
++### 1. CCodePrinter Inheritance Chain
++- `CCodePrinter` (sympy/printing/ccode.py:86) extends `CodePrinter`
++- `CodePrinter` (sympy/printing/codeprinter.py:23) extends `StrPrinter`
++- Neither `CCodePrinter` nor `CodePrinter` define `_print_Relational`
++
++### 2. StrPrinter's _print_Relational Method
++Located at sympy/printing/str.py:568-586:
++
++```python
++def _print_Relational(self, expr):
++    charmap = {
++        "==": "Eq",
++        "!=": "Ne",
++        ":=": "Assignment",
++        '+=': "AddAugmentedAssignment",
++        "-=": "SubAugmentedAssignment",
++        "*=": "MulAugmentedAssignment",
++        "/=": "DivAugmentedAssignment",
++        "%=": "ModAugmentedAssignment",
++    }
++    
++    if expr.rel_op in charmap:
++        return '%s(%s, %s)' % (charmap[expr.rel_op], expr.lhs, expr.rhs)
++    
++    return '%s %s %s' % (self.parenthesize(expr.lhs, precedence(expr)),
++                       self._relationals.get(expr.rel_op) or expr.rel_op,
++                       self.parenthesize(expr.rhs, precedence(expr)))
++
++
++This shows that for `expr.rel_op == "!="`, it returns `"Ne(x, 0)"` - functional notation.
++
++### 3. Test in test_str.py
++From sympy/printing/tests/test_str.py:508:
++```python
++assert str(Rel(x, y, "!=")) == "Ne(x, y)"
++
++
++This confirms StrPrinter prints Ne in functional notation.
++
++### 4. LaTeX Printer Implementation
++LaTeX printer (sympy/printing/latex.py:1271-1289) DOES implement `_print_Relational`:
++
++```python
++def _print_Relational(self, expr):
++    charmap = {
++        "==": "=",
++        ">": gt,
++        "<": lt,
++        ">=": r"\geq",
++        "<=": r"\leq",
++        "!=": r"\neq",
++    }
++    
++    return "%s %s %s" % (self._print(expr.lhs),
++        charmap[expr.rel_op], self._print(expr.rhs))
++
++
++This shows the correct pattern: use `expr.rel_op` to get the operator, then map it to the target language's syntax.
++
++### 5. Relational Classes Structure
++From sympy/core/relational.py:
++
++- `Unequality` class (line 362): `rel_op = '!='`
++- `Ne = Unequality` (line 413)
++- All relational classes have `rel_op` attribute:
++  - Equality: `rel_op = '=='`
++  - Unequality/Ne: `rel_op = '!='`
++  - LessThan: `rel_op = '<='`
++  - StrictLessThan: `rel_op = '<'`
++  - GreaterThan: `rel_op = '>='`
++  - StrictGreaterThan: `rel_op = '>'`
++
++### 6. The Original Issue
++From the issue description:
++```python
++ccode(Piecewise((sin(theta)/theta, Ne(theta, 0)), (1, True)))
++
++produces:
++```c
++'((Ne(theta, 0)) ? (\n   sin(theta)/theta\n)\n: (\n   1\n))'
++
++
++This shows `Ne(theta, 0)` is printed literally as "Ne(theta, 0)" instead of "theta != 0".
++
++## Conclusion
++
++**YES, we need to add `_print_Relational` method to CCodePrinter.**
++
++The method should:
++1. Access `expr.rel_op` to get the operator string
++2. For C code, the operators map directly (no conversion needed):
++   - `"=="` → `"=="`
++   - `"!="` → `"!="`
++   - `"<"` → `"<"`
++   - `"<="` → `"<="`
++   - `">"` → `">"`
++   - `">="` → `">="`
++3. Format as: `lhs operator rhs` with proper parenthesization
++
++## Recommended Implementation
++
++Add to CCodePrinter class in sympy/printing/ccode.py:
++
++```python
++def _print_Relational(self, expr):
++    """Print relational operators in C syntax."""
++    return "%s %s %s" % (
++        self.parenthesize(expr.lhs, precedence(expr)),
++        expr.rel_op,
++        self.parenthesize(expr.rhs, precedence(expr))
++    )
++
++
++This is simpler than LaTeX printer's implementation because C operators match the rel_op strings exactly.
+
+diff --git a/sympy/printing/ccode.py b/sympy/printing/ccode.py
+--- a/sympy/printing/ccode.py
++++ b/sympy/printing/ccode.py
+@@ -244,20 +244,36 @@
+         else:
+             raise NotImplementedError("Only iterable currently supported is Range")
+         body = self._print(expr.body)
+         return ('for ({target} = {start}; {target} < {stop}; {target} += '
+                 '{step}) {{\n{body}\n}}').format(target=target, start=start,
+                 stop=stop, step=step, body=body)
+ 
+     def _print_sign(self, func):
+         return '((({0}) > 0) - (({0}) < 0))'.format(self._print(func.args[0]))
+ 
++    def _print_sinc(self, expr):
++        from sympy.functions import Piecewise, sin
++        from sympy.core.relational import Ne
++        _piecewise = Piecewise(
++            (sin(expr.args[0]) / expr.args[0], Ne(expr.args[0], S.Zero)),
++            (S.One, True)
++        )
++        return self._print(_piecewise)
++
++    def _print_Relational(self, expr):
++        lhs_code = self._print(expr.lhs)
++        rhs_code = self._print(expr.rhs)
++        op = expr.rel_op
++        return "{0} {1} {2}".format(lhs_code, op, rhs_code)
++
++
+     def indent_code(self, code):
+         """Accepts a string of code or a list of code lines"""
+ 
+         if isinstance(code, string_types):
+             code_lines = self.indent_code(code.splitlines(True))
+             return ''.join(code_lines)
+ 
+         tab = "   "
+         inc_token = ('{', '(', '{\n', '(\n')
+         dec_token = ('}', ')')

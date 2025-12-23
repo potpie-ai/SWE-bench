@@ -1,0 +1,74 @@
+diff --git a/lib/matplotlib/style/core.py b/lib/matplotlib/style/core.py
+--- a/lib/matplotlib/style/core.py
++++ b/lib/matplotlib/style/core.py
+@@ -43,6 +43,63 @@
+     'toolbar', 'timezone', 'figure.max_open_warning',
+     'figure.raise_window', 'savefig.directory', 'tk.window_focus',
+     'docstring.hardcopy', 'date.epoch'}
++
++# Mapping of deprecated seaborn styles (old name -> new name)
++_DEPRECATED_SEABORN_STYLES = {
++    s: s.replace("seaborn", "seaborn-v0_8")
++    for s in [
++        "seaborn",
++        "seaborn-bright",
++        "seaborn-colorblind",
++        "seaborn-dark",
++        "seaborn-darkgrid",
++        "seaborn-dark-palette",
++        "seaborn-deep",
++        "seaborn-muted",
++        "seaborn-notebook",
++        "seaborn-paper",
++        "seaborn-pastel",
++        "seaborn-poster",
++        "seaborn-talk",
++        "seaborn-ticks",
++        "seaborn-white",
++        "seaborn-whitegrid",
++    ]
++}
++
++
++class _StyleLibrary(dict):
++    """
++    A dict subclass that handles deprecated style names with a warning.
++    """
++
++    def __getitem__(self, key):
++        if key in _DEPRECATED_SEABORN_STYLES:
++            _api.warn_deprecated(
++                "3.6", message="The seaborn styles shipped by Matplotlib "
++                "are deprecated since %(since)s, as they no longer "
++                "correspond to the styles shipped by seaborn. However, "
++                "they will remain available as 'seaborn-v0_8-<style>'. "
++                "Alternatively, directly use the seaborn API instead.")
++            key = _DEPRECATED_SEABORN_STYLES[key]
++        return dict.__getitem__(self, key)
++
++    def __contains__(self, key):
++        if key in _DEPRECATED_SEABORN_STYLES:
++            key = _DEPRECATED_SEABORN_STYLES[key]
++        return dict.__contains__(self, key)
++
++    def get(self, key, default=None):
++        if key in _DEPRECATED_SEABORN_STYLES:
++            _api.warn_deprecated(
++                "3.6", message="The seaborn styles shipped by Matplotlib "
++                "are deprecated since %(since)s, as they no longer "
++                "correspond to the styles shipped by seaborn. However, "
++                "they will remain available as 'seaborn-v0_8-<style>'. "
++                "Alternatively, directly use the seaborn API instead.")
++            key = _DEPRECATED_SEABORN_STYLES[key]
++        return dict.get(self, key, default)
++
+ 
+ 
+ def _remove_blacklisted_style_params(d, warn=True):
+@@ -254,7 +311,7 @@
+ def reload_library():
+     """Reload the style library."""
+     global library
+-    library = update_user_library(_base_library)
++    library = _StyleLibrary(update_user_library(_base_library))
+     available[:] = sorted(library.keys())

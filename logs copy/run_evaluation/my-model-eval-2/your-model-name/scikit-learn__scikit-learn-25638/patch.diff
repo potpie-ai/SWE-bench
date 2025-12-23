@@ -1,0 +1,16 @@
+diff --git a/sklearn/utils/multiclass.py b/sklearn/utils/multiclass.py
+--- a/sklearn/utils/multiclass.py
++++ b/sklearn/utils/multiclass.py
+@@ -298,6 +298,12 @@
+     if is_multilabel(y):
+         return "multilabel-indicator"
+ 
++
++    # Handle pandas nullable dtypes (Int64, Float64, boolean) that would otherwise
++    # be converted to object dtype and trigger the 'unknown' classification
++    if hasattr(y, "dtype") and hasattr(y.dtype, "numpy_dtype"):
++        y = y.astype(y.dtype.numpy_dtype)
++
+     # DeprecationWarning will be replaced by ValueError, see NEP 34
+     # https://numpy.org/neps/nep-0034-infer-dtype-is-object.html
+     # We therefore catch both deprecation (NumPy < 1.24) warning and

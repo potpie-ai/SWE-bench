@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12856",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "8328811f048fed0dd22573224def8c65410c9f2e",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/base.py b/django/db/models/base.py\n--- a/django/db/models/base.py\n+++ b/django/db/models/base.py\n@@ -1926,6 +1926,12 @@ def _check_constraints(cls, databases):\n                         id='models.W038',\n                     )\n                 )\n+            fields = (\n+                field\n+                for constraint in cls._meta.constraints if isinstance(constraint, UniqueConstraint)\n+                for field in constraint.fields\n+            )\n+            errors.extend(cls._check_local_fields(fields, 'constraints'))\n         return errors\n \n \n",
+  "hint": "Demonstration\nAgreed. We can simply call cls._check_local_fields() for UniqueConstraint's fields. I attached tests.\nTests.\nHello Django Team, My name is Jannah Mandwee, and I am working on my final project for my undergraduate software engineering class (here is the link to the assignment: \u200bhttps://web.eecs.umich.edu/~weimerw/481/hw6.html). I have to contribute to an open-source project and was advised to look through easy ticket pickings. I am wondering if it is possible to contribute to this ticket or if there is another ticket you believe would be a better fit for me. Thank you for your help.\nReplying to Jannah Mandwee: Hello Django Team, My name is Jannah Mandwee, and I am working on my final project for my undergraduate software engineering class (here is the link to the assignment: \u200bhttps://web.eecs.umich.edu/~weimerw/481/hw6.html). I have to contribute to an open-source project and was advised to look through easy ticket pickings. I am wondering if it is possible to contribute to this ticket or if there is another ticket you believe would be a better fit for me. Thank you for your help. Hi Jannah, I'm working in this ticket. You can consult this report: https://code.djangoproject.com/query?status=!closed&easy=1&stage=Accepted&order=priority there are all the tickets marked as easy.\nCheckConstraint might have the same bug."
+}

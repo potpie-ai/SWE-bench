@@ -1,0 +1,12 @@
+{
+  "instance_id": "mwaskom__seaborn-3010",
+  "model_patch": "",
+  "repo": "mwaskom/seaborn",
+  "commit_id": "0f5a013e2cf43562deec3b879458e59a73853813",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/seaborn/_stats/regression.py b/seaborn/_stats/regression.py\n--- a/seaborn/_stats/regression.py\n+++ b/seaborn/_stats/regression.py\n@@ -38,7 +38,10 @@ def _fit_predict(self, data):\n \n     def __call__(self, data, groupby, orient, scales):\n \n-        return groupby.apply(data, self._fit_predict)\n+        return (\n+            groupby\n+            .apply(data.dropna(subset=[\"x\", \"y\"]), self._fit_predict)\n+        )\n \n \n @dataclass\n",
+  "hint": ""
+}

@@ -1,0 +1,16 @@
+diff --git a/sympy/core/power.py b/sympy/core/power.py
+--- a/sympy/core/power.py
++++ b/sympy/core/power.py
+@@ -1185,6 +1185,12 @@
+         elif dnonpos is None and not int_exp:
+             n = base
+             d = S.One
++        # Similarly for the numerator. If it could be negative and the
++        # exponent is not an integer, we can't separate it.
++        if d is not S.One and n.is_nonnegative is None and not int_exp:
++            n = base
++            d = S.One
++
+         if neg_exp:
+             n, d = d, n
+             exp = -exp

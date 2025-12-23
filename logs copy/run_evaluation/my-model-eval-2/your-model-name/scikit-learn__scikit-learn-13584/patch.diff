@@ -1,0 +1,77 @@
+diff --git a/sklearn/utils/_pprint.py b/sklearn/utils/_pprint.py
+--- a/sklearn/utils/_pprint.py
++++ b/sklearn/utils/_pprint.py
+@@ -64,10 +64,11 @@
+ #   shortened using ellipsis (', ...') at the end.
+ 
+ from inspect import signature
+ import pprint
+ from collections import OrderedDict
++import numpy as np
+ 
+ from ..base import BaseEstimator
+ from .._config import get_config
+ from . import is_scalar_nan
+ 
+@@ -80,10 +81,47 @@
+ 
+ 
+ class KeyValTupleParam(KeyValTuple):
+     """Dummy class for correctly rendering key-value tuples from parameters."""
+     pass
++
++
++def _params_equal(v1, v2):
++    """Compare two parameter values for equality, handling arrays safely.
++    
++    Parameters
++    ----------
++    v1, v2 : any
++        The two parameter values to compare.
++    
++    Returns
++    -------
++    equal : bool
++        True if values are equal, False if they differ.
++    """
++    # Handle scalar NaN - both NaN should be considered equal
++    if is_scalar_nan(v1) and is_scalar_nan(v2):
++        return True
++    
++    # Handle numpy arrays using array_equal
++    try:
++        # Check if both are numpy arrays
++        if isinstance(v1, np.ndarray) and isinstance(v2, np.ndarray):
++            return np.array_equal(v1, v2)
++        # Check if one is array and other is not (they're different)
++        elif isinstance(v1, np.ndarray) or isinstance(v2, np.ndarray):
++            return False
++    except (TypeError, ValueError):
++        # If comparison fails, they're not equal
++        return False
++    
++    # For all other types, use standard comparison
++    try:
++        return v1 == v2
++    except (ValueError, TypeError):
++        # If comparison raises error, they're not equal
++        return False
+ 
+ 
+ def _changed_params(estimator):
+     """Return dict (param_name: value) of parameters that were given to
+     estimator with non-default values."""
+@@ -93,12 +131,11 @@
+     init_func = getattr(estimator.__init__, 'deprecated_original',
+                         estimator.__init__)
+     init_params = signature(init_func).parameters
+     init_params = {name: param.default for name, param in init_params.items()}
+     for k, v in params.items():
+-        if (v != init_params[k] and
+-                not (is_scalar_nan(init_params[k]) and is_scalar_nan(v))):
++        if not _params_equal(v, init_params[k]):
+             filtered_params[k] = v
+     return filtered_params
+ 
+ 
+ class _EstimatorPrettyPrinter(pprint.PrettyPrinter):

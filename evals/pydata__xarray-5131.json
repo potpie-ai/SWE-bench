@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-5131",
+  "model_patch": "",
+  "repo": "pydata/xarray",
+  "commit_id": "e56905889c836c736152b11a7e6117a229715975",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/xarray/core/groupby.py b/xarray/core/groupby.py\n--- a/xarray/core/groupby.py\n+++ b/xarray/core/groupby.py\n@@ -436,7 +436,7 @@ def __iter__(self):\n         return zip(self._unique_coord.values, self._iter_grouped())\n \n     def __repr__(self):\n-        return \"{}, grouped over {!r} \\n{!r} groups with labels {}.\".format(\n+        return \"{}, grouped over {!r}\\n{!r} groups with labels {}.\".format(\n             self.__class__.__name__,\n             self._unique_coord.name,\n             self._unique_coord.size,\n",
+  "hint": "I don't think this is intentional and we are happy to take a PR. The problem seems to be here:\r\n\r\nhttps://github.com/pydata/xarray/blob/c7c4aae1fa2bcb9417e498e7dcb4acc0792c402d/xarray/core/groupby.py#L439\r\n\r\nYou will also have to fix the tests (maybe other places):\r\n\r\nhttps://github.com/pydata/xarray/blob/c7c4aae1fa2bcb9417e498e7dcb4acc0792c402d/xarray/tests/test_groupby.py#L391\r\nhttps://github.com/pydata/xarray/blob/c7c4aae1fa2bcb9417e498e7dcb4acc0792c402d/xarray/tests/test_groupby.py#L408\r\n"
+}

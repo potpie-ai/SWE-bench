@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-8435",
+  "model_patch": "",
+  "repo": "sphinx-doc/sphinx",
+  "commit_id": "5d8d6275a54f2c5fb72b82383b5712c22d337634",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py\n--- a/sphinx/ext/autodoc/__init__.py\n+++ b/sphinx/ext/autodoc/__init__.py\n@@ -1702,7 +1702,8 @@ def add_directive_header(self, sig: str) -> None:\n         if not self.options.annotation:\n             # obtain annotation for this data\n             try:\n-                annotations = get_type_hints(self.parent)\n+                annotations = get_type_hints(self.parent, None,\n+                                             self.config.autodoc_type_aliases)\n             except NameError:\n                 # Failed to evaluate ForwardRef (maybe TYPE_CHECKING)\n                 annotations = safe_getattr(self.parent, '__annotations__', {})\n@@ -2093,7 +2094,8 @@ def add_directive_header(self, sig: str) -> None:\n         if not self.options.annotation:\n             # obtain type annotation for this attribute\n             try:\n-                annotations = get_type_hints(self.parent)\n+                annotations = get_type_hints(self.parent, None,\n+                                             self.config.autodoc_type_aliases)\n             except NameError:\n                 # Failed to evaluate ForwardRef (maybe TYPE_CHECKING)\n                 annotations = safe_getattr(self.parent, '__annotations__', {})\n",
+  "hint": ""
+}

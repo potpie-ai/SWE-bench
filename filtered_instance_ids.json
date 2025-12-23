@@ -1,0 +1,13 @@
+[
+  "django__django-14672",
+  "django__django-16041",
+  "matplotlib__matplotlib-23314",
+  "matplotlib__matplotlib-25433",
+  "psf__requests-863",
+  "pytest-dev__pytest-11148",
+  "scikit-learn__scikit-learn-11281",
+  "sphinx-doc__sphinx-8721",
+  "sympy__sympy-23262",
+  "sympy__sympy-24152",
+  "sympy__sympy-24213"
+]

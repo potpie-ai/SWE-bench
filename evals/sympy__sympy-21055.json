@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-21055",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "748ce73479ee2cd5c861431091001cc18943c735",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:02",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/assumptions/refine.py b/sympy/assumptions/refine.py\n--- a/sympy/assumptions/refine.py\n+++ b/sympy/assumptions/refine.py\n@@ -297,6 +297,28 @@ def refine_im(expr, assumptions):\n         return - S.ImaginaryUnit * arg\n     return _refine_reim(expr, assumptions)\n \n+def refine_arg(expr, assumptions):\n+    \"\"\"\n+    Handler for complex argument\n+\n+    Explanation\n+    ===========\n+\n+    >>> from sympy.assumptions.refine import refine_arg\n+    >>> from sympy import Q, arg\n+    >>> from sympy.abc import x\n+    >>> refine_arg(arg(x), Q.positive(x))\n+    0\n+    >>> refine_arg(arg(x), Q.negative(x))\n+    pi\n+    \"\"\"\n+    rg = expr.args[0]\n+    if ask(Q.positive(rg), assumptions):\n+        return S.Zero\n+    if ask(Q.negative(rg), assumptions):\n+        return S.Pi\n+    return None\n+\n \n def _refine_reim(expr, assumptions):\n     # Helper function for refine_re & refine_im\n@@ -379,6 +401,7 @@ def refine_matrixelement(expr, assumptions):\n     'atan2': refine_atan2,\n     're': refine_re,\n     'im': refine_im,\n+    'arg': refine_arg,\n     'sign': refine_sign,\n     'MatrixElement': refine_matrixelement\n }  # type: Dict[str, Callable[[Expr, Boolean], Expr]]\n",
+  "hint": ""
+}

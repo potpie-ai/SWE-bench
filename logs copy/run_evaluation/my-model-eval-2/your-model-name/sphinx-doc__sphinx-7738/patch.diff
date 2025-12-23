@@ -1,0 +1,21 @@
+diff --git a/sphinx/ext/napoleon/docstring.py b/sphinx/ext/napoleon/docstring.py
+--- a/sphinx/ext/napoleon/docstring.py
++++ b/sphinx/ext/napoleon/docstring.py
+@@ -585,7 +585,7 @@
+                 if _type:
+                     lines.append(':vartype %s: %s' % (_name, _type))
+             else:
+-                lines.append('.. attribute:: ' + _name)
++                lines.append('.. attribute:: ' + _name.replace('\\_', '_'))
+                 if self._opt and 'noindex' in self._opt:
+                     lines.append('   :noindex:')
+                 if _type:
+@@ -645,7 +645,7 @@
+     def _parse_methods_section(self, section: str) -> List[str]:
+         lines = []  # type: List[str]
+         for _name, _type, _desc in self._consume_fields(parse_type=False):
+-            lines.append('.. method:: %s' % _name)
++            lines.append('.. method:: %s' % _name.replace('\\_', '_'))
+             if self._opt and 'noindex' in self._opt:
+                 lines.append('   :noindex:')
+             if _desc:

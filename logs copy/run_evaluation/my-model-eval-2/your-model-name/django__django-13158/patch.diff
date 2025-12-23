@@ -1,0 +1,16 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -502,10 +502,12 @@
+             combinator = self.query.combinator
+             features = self.connection.features
+             if combinator:
+                 if not getattr(features, 'supports_select_{}'.format(combinator)):
+                     raise NotSupportedError('{} is not supported on this database backend.'.format(combinator))
++                if self.query.is_empty():
++                    raise EmptyResultSet
+                 result, params = self.get_combinator_sql(combinator, self.query.combinator_all)
+             else:
+                 distinct_fields, distinct_params = self.get_distinct()
+                 # This must come after 'select', 'ordering', and 'distinct'
+                 # (see docstring of get_from_clause() for details).

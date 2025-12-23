@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14382",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "29345aecf6e8d53ccb3577a3762bb0c263f7558d",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/core/management/templates.py b/django/core/management/templates.py\n--- a/django/core/management/templates.py\n+++ b/django/core/management/templates.py\n@@ -73,9 +73,9 @@ def handle(self, app_or_project, name, target=None, **options):\n             except OSError as e:\n                 raise CommandError(e)\n         else:\n-            if app_or_project == 'app':\n-                self.validate_name(os.path.basename(target), 'directory')\n             top_dir = os.path.abspath(os.path.expanduser(target))\n+            if app_or_project == 'app':\n+                self.validate_name(os.path.basename(top_dir), 'directory')\n             if not os.path.exists(top_dir):\n                 raise CommandError(\"Destination directory '%s' does not \"\n                                    \"exist, please create it first.\" % top_dir)\n",
+  "hint": "OK, yes, this seems a case we could handle. I didn't look into exactly why but it works for startproject: $ django-admin startproject ticket32734 testing/ Thanks for the report. Do you fancy making a PR?\nI didn't look into exactly why but it works for startproject This is the relevant piece of code: if app_or_project == 'app': self.validate_name(os.path.basename(target), 'directory') The changes were made here: \u200bhttps://github.com/django/django/pull/11270/files"
+}

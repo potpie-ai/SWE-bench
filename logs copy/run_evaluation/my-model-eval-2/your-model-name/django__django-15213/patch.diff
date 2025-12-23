@@ -1,0 +1,34 @@
+diff --git a/django/db/models/sql/where.py b/django/db/models/sql/where.py
+--- a/django/db/models/sql/where.py
++++ b/django/db/models/sql/where.py
+@@ -214,9 +214,12 @@
+         # Wrap filters with a CASE WHEN expression if a database backend
+         # (e.g. Oracle) doesn't support boolean expression in SELECT or GROUP
+         # BY list.
++        if not sql:
++            return '1', params
+         if not compiler.connection.features.supports_boolean_expr_in_select_clause:
+             sql = f'CASE WHEN {sql} THEN 1 ELSE 0 END'
+         return sql, params
++
+ 
+     def get_db_converters(self, connection):
+         return self.output_field.get_db_converters(connection)
+
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -981,6 +981,14 @@
+     def as_sql(self, compiler, connection):
+         return compiler.compile(self.expression)
+ 
++    def select_format(self, compiler, sql, params):
++        # Delegate the select_format() to the wrapped expression, which may
++        # want to format the result differently.
++        if hasattr(self.expression, 'select_format'):
++            return self.expression.select_format(compiler, sql, params)
++        return super().select_format(compiler, sql, params)
++
++
+     def __repr__(self):
+         return "{}({})".format(self.__class__.__name__, self.expression)

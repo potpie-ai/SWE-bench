@@ -1,0 +1,50 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -1183,17 +1183,17 @@
+         )
+ 
+ 
+ class ModelChoiceField(ChoiceField):
+     """A ChoiceField whose choices are a model QuerySet."""
+     # This class is a subclass of ChoiceField for purity, but it doesn't
+     # actually use any of ChoiceField's implementation.
+     default_error_messages = {
+-        'invalid_choice': _('Select a valid choice. That choice is not one of'
++        'invalid_choice': _('Select a valid choice. %(value)s is not one of'
+                             ' the available choices.'),
+     }
+     iterator = ModelChoiceIterator
+ 
+     def __init__(self, queryset, *, empty_label="---------",
+                  required=True, widget=None, label=None, initial=None,
+                  help_text='', to_field_name=None, limit_choices_to=None,
+                  blank=False, **kwargs):
+@@ -1275,21 +1275,26 @@
+                 return value.pk
+         return super().prepare_value(value)
+ 
+     def to_python(self, value):
+         if value in self.empty_values:
+             return None
+         try:
+             key = self.to_field_name or 'pk'
++            original_value = value
+             if isinstance(value, self.queryset.model):
+                 value = getattr(value, key)
+             value = self.queryset.get(**{key: value})
+         except (ValueError, TypeError, self.queryset.model.DoesNotExist):
+-            raise ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')
++            raise ValidationError(
++                self.error_messages['invalid_choice'],
++                code='invalid_choice',
++                params={'value': original_value},
++            )
+         return value
+ 
+     def validate(self, value):
+         return Field.validate(self, value)
+ 
+     def has_changed(self, initial, data):
+         if self.disabled:
+             return False

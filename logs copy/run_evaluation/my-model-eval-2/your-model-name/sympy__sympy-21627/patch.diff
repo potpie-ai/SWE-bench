@@ -1,0 +1,33 @@
+diff --git a/sympy/functions/elementary/hyperbolic.py b/sympy/functions/elementary/hyperbolic.py
+--- a/sympy/functions/elementary/hyperbolic.py
++++ b/sympy/functions/elementary/hyperbolic.py
+@@ -445,6 +445,10 @@
+         # Case 2 (x=0): cosh(z) = cos(y) -> positive when cos(y) is positive
+         z = self.args[0]
+ 
++        # cosh(real x) = (e^x + e^-x)/2 which is always >= 1 > 0
++        if z.is_extended_real:
++            return True
++
+         x, y = z.as_real_imag()
+         ymod = y % (2*pi)
+ 
+@@ -472,6 +476,10 @@
+     def _eval_is_nonnegative(self):
+         z = self.args[0]
+ 
++        # cosh(real x) = (e^x + e^-x)/2 which is always >= 1 >= 0
++        if z.is_extended_real:
++            return True
++
+         x, y = z.as_real_imag()
+         ymod = y % (2*pi)
+ 
+@@ -494,6 +502,7 @@
+                     fuzzy_or([ymod <= pi/2, ymod >= 3*pi/2])
+                 ])
+             ])
++
+ 
+     def _eval_is_finite(self):
+         arg = self.args[0]

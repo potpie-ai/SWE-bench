@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15213",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "03cadb912c78b769d6bf4a943a2a35fc1d952960",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py\n--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -994,6 +994,15 @@ def formfield(self, **kwargs):\n             defaults = {'form_class': form_class, 'required': False}\n         return super().formfield(**{**defaults, **kwargs})\n \n+    def select_format(self, compiler, sql, params):\n+        sql, params = super().select_format(compiler, sql, params)\n+        # Filters that match everything are handled as empty strings in the\n+        # WHERE clause, but in SELECT or GROUP BY list they must use a\n+        # predicate that's always True.\n+        if sql == '':\n+            sql = '1'\n+        return sql, params\n+\n \n class CharField(Field):\n     description = _(\"String (up to %(max_length)s)\")\n",
+  "hint": "Good catch! >>> books = Book.objects.annotate(selected=ExpressionWrapper(~Q(pk__in=[]), output_field=BooleanField())).values('selected') >>> list(books) Traceback (most recent call last): File \"/django/django/db/backends/utils.py\", line 85, in _execute return self.cursor.execute(sql, params) File \"/django/django/db/backends/sqlite3/base.py\", line 420, in execute return Database.Cursor.execute(self, query, params) sqlite3.OperationalError: near \"AS\": syntax error"
+}

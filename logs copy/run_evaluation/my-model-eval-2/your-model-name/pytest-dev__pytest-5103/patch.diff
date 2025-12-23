@@ -1,0 +1,164 @@
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -837,10 +837,26 @@
+         self.variables = []
+         self.variable_counter = itertools.count()
+         self.stack = []
+         self.on_failure = []
+         self.push_format_context()
++        
++        # Check if this is a call to all() or any() and unroll it
++        if (isinstance(assert_.test, ast.Call) and 
++            isinstance(assert_.test.func, ast.Name) and
++            assert_.test.func.id in ("all", "any") and
++            len(assert_.test.args) == 1):
++            
++            func_name = assert_.test.func.id
++            arg = assert_.test.args[0]
++            
++            # Only unroll generator expressions and list comprehensions
++            if isinstance(arg, (ast.GeneratorExp, ast.ListComp)):
++                result = self._unroll_all_any(assert_, func_name, arg)
++                if result is not None:
++                    return result
++        
+         # Rewrite assert into a bunch of statements.
+         top_condition, explanation = self.visit(assert_.test)
+         # If in a test module, check if directly asserting None, in order to warn [Issue #3191]
+         if self.module_path is not None:
+             self.statements.append(
+@@ -875,10 +891,133 @@
+             self.statements.append(clear)
+         # Fix line numbers.
+         for stmt in self.statements:
+             set_location(stmt, assert_.lineno, assert_.col_offset)
+         return self.statements
++    
++    def _unroll_all_any(self, assert_, func_name, arg):
++        """Unroll a call to all() or any() into a for loop with individual assertions."""
++        is_any = func_name == "any"
++        
++        # Extract the loop components from the comprehension
++        if isinstance(arg, ast.ListComp):
++            comp = arg
++            if not comp.generators:
++                return None
++            gen = comp.generators[0]
++            target = gen.target
++            iter_node = gen.iter
++            element_test = comp.elt
++            ifs = gen.ifs
++        elif isinstance(arg, ast.GeneratorExp):
++            comp = arg
++            if not comp.generators:
++                return None
++            gen = comp.generators[0]
++            target = gen.target
++            iter_node = gen.iter
++            element_test = comp.elt
++            ifs = gen.ifs
++        else:
++            return None
++        
++        # For any(), create a result variable to track if any element passed
++        if is_any:
++            result_var = self.variable()
++            self.statements.append(
++                ast.Assign([ast.Name(result_var, ast.Store())], _NameConstant(False))
++            )
++        
++        # Save current state
++        save_statements = self.statements
++        save_variables = self.variables
++        save_variable_counter = self.variable_counter
++        save_on_failure = self.on_failure
++        
++        # Create new state for the element test
++        self.statements = []
++        self.variables = []
++        self.variable_counter = itertools.count()
++        self.on_failure = []
++        self.push_format_context()
++        
++        # Visit the element test expression
++        element_res, element_expl = self.visit(element_test)
++        
++        # Build the loop body
++        loop_body = list(self.statements)
++        
++        # Build error message for the element
++        assertmsg = ast.Str("")
++        explanation = "assert " + element_expl
++        template = ast.BinOp(assertmsg, ast.Add(), ast.Str(explanation))
++        msg = self.pop_format_context(template)
++        fmt = self.helper("_format_explanation", msg)
++        err_name = ast.Name("AssertionError", ast.Load())
++        exc = ast_Call(err_name, [fmt], [])
++        if sys.version_info[0] >= 3:
++            raise_ = ast.Raise(exc, None)
++        else:
++            raise_ = ast.Raise(exc, None, None)
++        
++        if is_any:
++            # For any(), if element is True, set result and break
++            then_body = [
++                ast.Assign([ast.Name(result_var, ast.Store())], _NameConstant(True)),
++                ast.Break()
++            ]
++            loop_body.append(ast.If(element_res, then_body, []))
++        else:
++            # For all(), if element is False, raise immediately
++            negation = ast.UnaryOp(ast.Not(), element_res)
++            then_body = self.on_failure + [raise_]
++            loop_body.append(ast.If(negation, then_body, []))
++        
++        # Save element variables
++        element_variables = self.variables
++        
++        # Restore state
++        self.statements = save_statements
++        self.variables = save_variables
++        self.variable_counter = save_variable_counter
++        self.on_failure = save_on_failure
++        
++        # Add element variables to tracked variables
++        self.variables.extend(element_variables)
++        
++        # Create the for loop
++        for_loop = ast.For(target, iter_node, loop_body, [])
++        self.statements.append(for_loop)
++        
++        # For any(), check result after loop
++        if is_any:
++            assertmsg = ast.Str("")
++            explanation = "assert any(...)"
++            msg_str = ast.Str(explanation)
++            fmt = self.helper("_format_explanation", msg_str)
++            err_name = ast.Name("AssertionError", ast.Load())
++            exc = ast_Call(err_name, [fmt], [])
++            if sys.version_info[0] >= 3:
++                raise_ = ast.Raise(exc, None)
++            else:
++                raise_ = ast.Raise(exc, None, None)
++            
++            negation = ast.UnaryOp(ast.Not(), ast.Name(result_var, ast.Load()))
++            self.statements.append(ast.If(negation, [raise_], []))
++        
++        # Clear temporary variables
++        if self.variables:
++            variables = [ast.Name(name, ast.Store()) for name in self.variables]
++            clear = ast.Assign(variables, _NameConstant(None))
++            self.statements.append(clear)
++        
++        # Fix line numbers
++        for stmt in self.statements:
++            set_location(stmt, assert_.lineno, assert_.col_offset)
++        
++        return self.statements
++
+ 
+     def warn_about_none_ast(self, node, module_path, lineno):
+         """
+         Returns an AST issuing a warning if the value of node is `None`.
+         This is used to warn the user when asserting a function that asserts

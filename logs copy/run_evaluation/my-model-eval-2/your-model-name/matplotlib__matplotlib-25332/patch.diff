@@ -1,0 +1,34 @@
+diff --git a/lib/matplotlib/cbook.py b/lib/matplotlib/cbook.py
+--- a/lib/matplotlib/cbook.py
++++ b/lib/matplotlib/cbook.py
+@@ -845,6 +845,30 @@
+         self.clean()
+         siblings = self._mapping.get(weakref.ref(a), [weakref.ref(a)])
+         return [x() for x in siblings]
++
++    def __getstate__(self):
++        """
++        Prepare the Grouper for pickling by dereferencing weakrefs.
++        
++        Returns a list of groups, where each group is a list of objects.
++        """
++        return list(self)
++
++    def __setstate__(self, state):
++        """
++        Restore the Grouper from pickled state.
++        
++        Reconstructs the _mapping dictionary with weakrefs from the stored groups.
++        
++        Parameters
++        ----------
++        state : list of lists
++            Each inner list contains objects that belong to the same group.
++        """
++        self._mapping = {}
++        for group in state:
++            if group:  # Skip empty groups
++                self.join(*group)
+ 
+ 
+ class GrouperView:

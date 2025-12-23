@@ -1,0 +1,16 @@
+diff --git a/lib/matplotlib/offsetbox.py b/lib/matplotlib/offsetbox.py
+--- a/lib/matplotlib/offsetbox.py
++++ b/lib/matplotlib/offsetbox.py
+@@ -1556,10 +1556,12 @@
+         else:
+             return True
+ 
+     def disconnect(self):
+         """Disconnect the callbacks."""
++        if self.ref_artist.figure is None:
++            return
+         for cid in self.cids:
+             self.canvas.mpl_disconnect(cid)
+         try:
+             c1 = self._c1
+         except AttributeError:

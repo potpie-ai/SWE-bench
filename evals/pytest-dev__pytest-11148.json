@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-11148",
+  "model_patch": "",
+  "repo": "pytest-dev/pytest",
+  "commit_id": "2f7415cfbc4b6ca62f9013f1abd27136f46b9653",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/src/_pytest/pathlib.py b/src/_pytest/pathlib.py\n--- a/src/_pytest/pathlib.py\n+++ b/src/_pytest/pathlib.py\n@@ -523,6 +523,8 @@ def import_path(\n \n     if mode is ImportMode.importlib:\n         module_name = module_name_from_path(path, root)\n+        with contextlib.suppress(KeyError):\n+            return sys.modules[module_name]\n \n         for meta_importer in sys.meta_path:\n             spec = meta_importer.find_spec(module_name, [str(path.parent)])\n",
+  "hint": "In pmxbot/pmxbot@3adc54c, I've managed to pare down the project to a bare minimum reproducer. The issue only happens when `import-mode=importlib` and `doctest-modules` and one of the modules imports another module.\r\n\r\nThis issue may be related to (or same as) #10341.\r\n\r\nI think you'll agree this is pretty basic behavior that should be supported.\r\n\r\nI'm not even aware of a good workaround.\nHey @jaraco, thanks for the reproducer! \r\n\r\nI found the problem, will open a PR shortly."
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13710",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "1bd6a7a0acc11e249fca11c017505ad39f15ebf6",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/admin/options.py b/django/contrib/admin/options.py\n--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -2037,10 +2037,13 @@ def __init__(self, parent_model, admin_site):\n         self.opts = self.model._meta\n         self.has_registered_model = admin_site.is_registered(self.model)\n         super().__init__()\n+        if self.verbose_name_plural is None:\n+            if self.verbose_name is None:\n+                self.verbose_name_plural = self.model._meta.verbose_name_plural\n+            else:\n+                self.verbose_name_plural = format_lazy('{}s', self.verbose_name)\n         if self.verbose_name is None:\n             self.verbose_name = self.model._meta.verbose_name\n-        if self.verbose_name_plural is None:\n-            self.verbose_name_plural = self.model._meta.verbose_name_plural\n \n     @property\n     def media(self):\n",
+  "hint": "Please push your patch as a \u200bDjango pull request."
+}

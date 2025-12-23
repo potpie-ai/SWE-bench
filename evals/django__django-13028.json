@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13028",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "78ad4b4b0201003792bfdbf1a7781cbc9ee03539",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "31:03",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py\n--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -1124,7 +1124,10 @@ def check_related_objects(self, field, value, opts):\n \n     def check_filterable(self, expression):\n         \"\"\"Raise an error if expression cannot be used in a WHERE clause.\"\"\"\n-        if not getattr(expression, 'filterable', True):\n+        if (\n+            hasattr(expression, 'resolve_expression') and\n+            not getattr(expression, 'filterable', True)\n+        ):\n             raise NotSupportedError(\n                 expression.__class__.__name__ + ' is disallowed in the filter '\n                 'clause.'\n",
+  "hint": "Thanks for the report, that's a nice edge case. We should be able to fix this by checking if rhs is an expression: diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py index ce18098fd2..ad981377a0 100644 --- a/django/db/models/sql/query.py +++ b/django/db/models/sql/query.py @@ -1124,7 +1124,7 @@ class Query(BaseExpression): def check_filterable(self, expression): \"\"\"Raise an error if expression cannot be used in a WHERE clause.\"\"\" - if not getattr(expression, 'filterable', True): + if hasattr(expression, 'resolve_expression') and not getattr(expression, 'filterable', True): raise NotSupportedError( expression.__class__.__name__ + ' is disallowed in the filter ' 'clause.' Would you like to provide a patch? Regression in 4edad1ddf6203326e0be4bdb105beecb0fe454c4.\nSure I will. I just need to read \u200bhttps://docs.djangoproject.com/en/dev/internals/contributing/"
+}

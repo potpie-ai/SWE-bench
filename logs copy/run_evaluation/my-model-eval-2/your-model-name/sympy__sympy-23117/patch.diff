@@ -1,0 +1,26 @@
+diff --git a/sympy/tensor/array/ndim_array.py b/sympy/tensor/array/ndim_array.py
+--- a/sympy/tensor/array/ndim_array.py
++++ b/sympy/tensor/array/ndim_array.py
+@@ -193,16 +193,21 @@
+         def f(pointer):
+             if not isinstance(pointer, Iterable):
+                 return [pointer], ()
+ 
+             result = []
+-            elems, shapes = zip(*[f(i) for i in pointer])
++            recursion_results = [f(i) for i in pointer]
++            if not recursion_results:  # Empty iterable
++                return [], (0,)
++            
++            elems, shapes = zip(*recursion_results)
+             if len(set(shapes)) != 1:
+                 raise ValueError("could not determine shape unambiguously")
+             for i in elems:
+                 result.extend(i)
+             return result, (len(shapes),)+shapes[0]
++
+ 
+         return f(iterable)
+ 
+     @classmethod
+     def _handle_ndarray_creation_inputs(cls, iterable=None, shape=None, **kwargs):

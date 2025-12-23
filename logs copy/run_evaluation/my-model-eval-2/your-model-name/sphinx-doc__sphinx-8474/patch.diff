@@ -1,0 +1,54 @@
+diff --git a/sphinx/domains/std.py b/sphinx/domains/std.py
+--- a/sphinx/domains/std.py
++++ b/sphinx/domains/std.py
+@@ -1058,27 +1058,49 @@
+     def get_fignumber(self, env: "BuildEnvironment", builder: "Builder",
+                       figtype: str, docname: str, target_node: Element) -> Tuple[int, ...]:
+         if figtype == 'section':
+             if builder.name == 'latex':
+                 return tuple()
++            elif builder.name == 'singlehtml':
++                # In singlehtml builder, toc_secnumbers is restructured after assembly
++                # to avoid refid conflicts. Keys are in format "docname/#id" or "docname/"
++                docname_key = env.config.master_doc
++                if docname_key not in env.toc_secnumbers:
++                    raise ValueError  # no number assigned
++                anchorname = '%s/#%s' % (docname, target_node['ids'][0])
++                if anchorname not in env.toc_secnumbers[docname_key]:
++                    # try first heading which has no anchor
++                    anchorname = '%s/' % docname
++                    if anchorname not in env.toc_secnumbers[docname_key]:
++                        raise ValueError
++                return env.toc_secnumbers[docname_key].get(anchorname)
+             elif docname not in env.toc_secnumbers:
+                 raise ValueError  # no number assigned
+             else:
+                 anchorname = '#' + target_node['ids'][0]
+                 if anchorname not in env.toc_secnumbers[docname]:
+                     # try first heading which has no anchor
+                     return env.toc_secnumbers[docname].get('')
+                 else:
+                     return env.toc_secnumbers[docname].get(anchorname)
++
+         else:
+             try:
+                 figure_id = target_node['ids'][0]
+-                return env.toc_fignumbers[docname][figtype][figure_id]
++                if builder.name == 'singlehtml':
++                    # In singlehtml builder, toc_fignumbers is restructured after assembly
++                    # to avoid refid conflicts. Keys are in format "docname/figtype"
++                    docname_key = env.config.master_doc
++                    figtype_key = '%s/%s' % (docname, figtype)
++                    return env.toc_fignumbers[docname_key][figtype_key][figure_id]
++                else:
++                    return env.toc_fignumbers[docname][figtype][figure_id]
+             except (KeyError, IndexError) as exc:
+                 # target_node is found, but fignumber is not assigned.
+                 # Maybe it is defined in orphaned document.
+                 raise ValueError from exc
++
+ 
+     def get_full_qualified_name(self, node: Element) -> str:
+         if node.get('reftype') == 'option':
+             progname = node.get('std:program')
+             command = ws_re.split(node.get('reftarget'))

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13230",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "184a6eebb0ef56d5f1b1315a8e666830e37f3f81",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:02",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py\n--- a/django/contrib/syndication/views.py\n+++ b/django/contrib/syndication/views.py\n@@ -212,6 +212,7 @@ def get_feed(self, obj, request):\n                 author_name=author_name,\n                 author_email=author_email,\n                 author_link=author_link,\n+                comments=self._get_dynamic_attr('item_comments', item),\n                 categories=self._get_dynamic_attr('item_categories', item),\n                 item_copyright=self._get_dynamic_attr('item_copyright', item),\n                 **self.item_extra_kwargs(item)\n",
+  "hint": ""
+}

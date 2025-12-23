@@ -1,0 +1,14 @@
+{
+  "instance_id": "sympy__sympy-22005",
+  "model_patch": "",
+  "model_name_or_path": "your-model-name",
+  "repo": "sympy/sympy",
+  "commit_id": "2c83657ff1c62fc2761b639469fdac7f7561a72a",
+  "expected_patch": "diff --git a/sympy/solvers/polysys.py b/sympy/solvers/polysys.py\n--- a/sympy/solvers/polysys.py\n+++ b/sympy/solvers/polysys.py\n@@ -240,6 +240,12 @@ def _solve_reduced_system(system, gens, entry=False):\n \n         univariate = list(filter(_is_univariate, basis))\n \n+        if len(basis) < len(gens):\n+            raise NotImplementedError(filldedent('''\n+                only zero-dimensional systems supported\n+                (finite number of solutions)\n+                '''))\n+\n         if len(univariate) == 1:\n             f = univariate.pop()\n         else:\n",
+  "hint": "This is not a possible solution i feel , since some of the tests are failing and also weirdly `solve_poly_system([2*x - 3, y*Rational(3, 2) - 2*x, z - 5*y], x, y, z)`  is throwing a `NotImplementedError` .\nHmm. Well, they should yield similar results: an error or a solution. Looks like maybe a solution, then, should be returned? I am not sure. Maybe @jksuom would have some idea.\nIt seems that the number of polynomials in the Gr\u00f6bner basis should be the same as the number of variables so there should be something like\r\n```\r\n    if len(basis) != len(gens):\r\n        raise NotImplementedError(...)\n> It seems that the number of polynomials in the Gr\u00f6bner basis should be the same as the number of variables\r\n\r\nThis raises a `NotImplementedError` for `solve_poly_system([x*y - 2*y, 2*y**2 - x**2], x, y)` but which isn't the case since it has a solution.\nIt looks like the test could be `if len(basis) < len(gens)` though I'm not sure if the implementation can handle all cases where `len(basis) > len(gens)`.\nYes this works and now `solve_poly_system((y - 1,), x, y)` also returns `NotImplementedError` , I'll open a PR for this.\r\nI'm not sure but all cases of `len(basis) > len(gens)` are being handled.",
+  "time_taken": "00:00",
+  "conversation_id": "",
+  "reasoning": "Error: Cannot connect to host localhost:8001 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8001, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8001)]",
+  "status": "error",
+  "error": "Cannot connect to host localhost:8001 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8001, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8001)]"
+}

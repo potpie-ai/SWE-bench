@@ -1,0 +1,23 @@
+diff --git a/django/core/checks/translation.py b/django/core/checks/translation.py
+--- a/django/core/checks/translation.py
++++ b/django/core/checks/translation.py
+@@ -1,5 +1,7 @@
+ from django.conf import settings
+-from django.utils.translation.trans_real import language_code_re
++from django.utils.translation.trans_real import (
++    get_supported_language_variant, language_code_re,
++)
+ 
+ from . import Error, Tags, register
+ 
+@@ -57,5 +59,9 @@
+     """Error if language settings are not consistent with each other."""
+     available_tags = {i for i, _ in settings.LANGUAGES} | {'en-us'}
+     if settings.LANGUAGE_CODE not in available_tags:
+-        return [E004]
++        # Check if a supported variant with fallback exists (e.g., 'de-at' -> 'de')
++        try:
++            get_supported_language_variant(settings.LANGUAGE_CODE, strict=True)
++        except LookupError:
++            return [E004]
+     return []

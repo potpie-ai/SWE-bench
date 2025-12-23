@@ -1,0 +1,17 @@
+diff --git a/sympy/physics/units/util.py b/sympy/physics/units/util.py
+--- a/sympy/physics/units/util.py
++++ b/sympy/physics/units/util.py
+@@ -31,7 +31,13 @@
+     exprmat = Matrix([dim_dependencies.get(k, 0) for k in canon_dim_units])
+ 
+     res_exponents = camat.solve_least_squares(exprmat, method=None)
++    # Verify that the solution is exact (i.e., not a least-squares approximation).
++    # If camat * res_exponents != exprmat, the system has no exact solution,
++    # meaning the dimensions are incompatible for conversion.
++    if (camat * res_exponents - exprmat).is_zero_matrix is not True:
++        return None
+     return res_exponents
++
+ 
+ 
+ def convert_to(expr, target_units, unit_system="SI"):

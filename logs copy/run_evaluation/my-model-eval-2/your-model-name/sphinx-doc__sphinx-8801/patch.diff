@@ -1,0 +1,16 @@
+diff --git a/sphinx/ext/autodoc/importer.py b/sphinx/ext/autodoc/importer.py
+--- a/sphinx/ext/autodoc/importer.py
++++ b/sphinx/ext/autodoc/importer.py
+@@ -305,11 +305,11 @@
+                 modname = safe_getattr(cls, '__module__')
+                 qualname = safe_getattr(cls, '__qualname__')
+                 analyzer = ModuleAnalyzer.for_module(modname)
+                 analyzer.analyze()
+                 for (ns, name), docstring in analyzer.attr_docs.items():
+-                    if ns == qualname and name not in members:
++                    if ns == qualname and (name not in members or not members[name].docstring):
+                         members[name] = ObjectMember(name, INSTANCEATTR, class_=cls,
+                                                      docstring='\n'.join(docstring))
+             except (AttributeError, PycodeError):
+                 pass
+     except AttributeError:

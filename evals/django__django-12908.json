@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12908",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "49ae7ce50a874f8a04cd910882fb9571ff3a0d7a",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/query.py b/django/db/models/query.py\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -1138,6 +1138,7 @@ def distinct(self, *field_names):\n         \"\"\"\n         Return a new QuerySet instance that will select only distinct results.\n         \"\"\"\n+        self._not_support_combined_queries('distinct')\n         assert not self.query.is_sliced, \\\n             \"Cannot create distinct fields once a slice has been taken.\"\n         obj = self._chain()\n",
+  "hint": "distinct() is not supported but doesn't raise an error yet. As \u200b\u200bper the documentation, \"only LIMIT, OFFSET, COUNT(*), ORDER BY, and specifying columns (i.e. slicing, count(), order_by(), and values()/values_list()) are allowed on the resulting QuerySet.\". Follow up to #27995."
+}

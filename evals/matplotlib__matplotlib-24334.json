@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-24334",
+  "model_patch": "",
+  "repo": "matplotlib/matplotlib",
+  "commit_id": "332937997d03e0c173be6d9fc1841e9186e857df",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/lib/matplotlib/axis.py b/lib/matplotlib/axis.py\n--- a/lib/matplotlib/axis.py\n+++ b/lib/matplotlib/axis.py\n@@ -2029,6 +2029,9 @@ def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):\n         other limits, you should set the limits explicitly after setting the\n         ticks.\n         \"\"\"\n+        if labels is None and kwargs:\n+            raise ValueError('labels argument cannot be None when '\n+                             'kwargs are passed')\n         result = self._set_tick_locations(ticks, minor=minor)\n         if labels is not None:\n             self.set_ticklabels(labels, minor=minor, **kwargs)\n",
+  "hint": "> we could even consider making any kwargs an error if labels is not set.\r\n\r\n\ud83d\udc4d "
+}

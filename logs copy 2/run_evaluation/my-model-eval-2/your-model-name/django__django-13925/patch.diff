@@ -1,0 +1,22 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1302,6 +1302,10 @@
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
++            # If the primary key is a parent link field (inheriting from parent model),
++            # don't raise the warning since the primary key is defined in the parent.
++            if cls._meta.pk.remote_field and cls._meta.pk.remote_field.parent_link:
++                return []
+             return [
+                 checks.Warning(
+                     f"Auto-created primary key used when not defining a "
+@@ -1318,6 +1322,7 @@
+                 ),
+             ]
+         return []
++
+ 
+     @classmethod
+     def _check_swappable(cls):

@@ -1,0 +1,27 @@
+diff --git a/django/core/files/storage.py b/django/core/files/storage.py
+--- a/django/core/files/storage.py
++++ b/django/core/files/storage.py
+@@ -1,6 +1,6 @@
+ import os
+ from datetime import datetime
+-from urllib.parse import urljoin
++from urllib.parse import urljoin, urlsplit
+ 
+ from django.conf import settings
+ from django.core.exceptions import SuspiciousFileOperation
+@@ -332,7 +332,14 @@
+         url = filepath_to_uri(name)
+         if url is not None:
+             url = url.lstrip('/')
+-        return urljoin(self.base_url, url)
++        final_url = urljoin(self.base_url, url)
++        # Check if base_url is a relative URL (no scheme or netloc)
++        # If so, prepend the SCRIPT_NAME prefix
++        parsed_base_url = urlsplit(self.base_url)
++        if not parsed_base_url.scheme and not parsed_base_url.netloc:
++            from django.urls import get_script_prefix
++            final_url = urljoin(get_script_prefix(), final_url.lstrip('/'))
++        return final_url
+ 
+     def _datetime_from_timestamp(self, ts):
+         """

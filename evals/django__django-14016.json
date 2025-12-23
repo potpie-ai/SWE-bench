@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14016",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "1710cdbe79c90665046034fe1700933d038d90ad",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py\n--- a/django/db/models/query_utils.py\n+++ b/django/db/models/query_utils.py\n@@ -5,7 +5,6 @@\n large and/or so that they can be used by other modules without getting into\n circular import difficulties.\n \"\"\"\n-import copy\n import functools\n import inspect\n from collections import namedtuple\n@@ -46,10 +45,12 @@ def _combine(self, other, conn):\n \n         # If the other Q() is empty, ignore it and just use `self`.\n         if not other:\n-            return copy.deepcopy(self)\n+            _, args, kwargs = self.deconstruct()\n+            return type(self)(*args, **kwargs)\n         # Or if this Q is empty, ignore it and just use `other`.\n         elif not self:\n-            return copy.deepcopy(other)\n+            _, args, kwargs = other.deconstruct()\n+            return type(other)(*args, **kwargs)\n \n         obj = type(self)()\n         obj.connector = conn\n",
+  "hint": "Thanks for this report. Regression in bb0b6e526340e638522e093765e534df4e4393d2."
+}

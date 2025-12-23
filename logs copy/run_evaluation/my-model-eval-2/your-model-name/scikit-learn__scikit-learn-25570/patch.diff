@@ -1,0 +1,30 @@
+diff --git a/sklearn/compose/_column_transformer.py b/sklearn/compose/_column_transformer.py
+--- a/sklearn/compose/_column_transformer.py
++++ b/sklearn/compose/_column_transformer.py
+@@ -381,18 +381,20 @@
+         output_config = _get_output_config("transform", self)
+         for name, trans, columns in transformers:
+             if replace_strings:
+-                # replace 'passthrough' with identity transformer and
+-                # skip in case of 'drop'
++                # skip in case of 'drop' or empty column selection
++                if trans == "drop":
++                    continue
++                if _is_empty_column_selection(columns):
++                    continue
++
++                # replace 'passthrough' with identity transformer
+                 if trans == "passthrough":
+                     trans = FunctionTransformer(
+                         accept_sparse=True,
+                         check_inverse=False,
+                         feature_names_out="one-to-one",
+                     ).set_output(transform=output_config["dense"])
+-                elif trans == "drop":
+-                    continue
+-                elif _is_empty_column_selection(columns):
+-                    continue
++
+ 
+             if column_as_strings:
+                 # Convert all columns to using their string labels

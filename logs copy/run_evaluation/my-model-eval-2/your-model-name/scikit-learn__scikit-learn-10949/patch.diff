@@ -1,0 +1,14 @@
+diff --git a/sklearn/utils/validation.py b/sklearn/utils/validation.py
+--- a/sklearn/utils/validation.py
++++ b/sklearn/utils/validation.py
+@@ -465,6 +465,10 @@
+     if not hasattr(dtype_orig, 'kind'):
+         # not a data type (e.g. a column named dtype in a pandas DataFrame)
+         dtype_orig = None
++        if not hasattr(array, 'dtype'):
++            # array doesn't have a dtype attribute (e.g., pandas DataFrame, list)
++            # get dtype by converting to array first
++            dtype_orig = np.asarray(array).dtype
+ 
+     if dtype_numeric:
+         if dtype_orig is not None and dtype_orig.kind == "O":

@@ -1,0 +1,28 @@
+diff --git a/./django/db/migrations/operations/fields.py b/./django/db/migrations/operations/fields.py
+--- a/./django/db/migrations/operations/fields.py
++++ b/./django/db/migrations/operations/fields.py
+@@ -240,20 +240,24 @@
+         self.database_forwards(app_label, schema_editor, from_state, to_state)
+ 
+     def describe(self):
+         return "Alter field %s on %s" % (self.name, self.model_name)
+ 
+     @property
+     def migration_name_fragment(self):
+         return "alter_%s_%s" % (self.model_name_lower, self.name_lower)
+ 
+     def reduce(self, operation, app_label):
++        if isinstance(operation, AlterField) and self.is_same_field_operation(
++            operation
++        ):
++            return [operation]
+         if isinstance(operation, RemoveField) and self.is_same_field_operation(
+             operation
+         ):
+             return [operation]
+         elif (
+             isinstance(operation, RenameField)
+             and self.is_same_field_operation(operation)
+             and self.field.db_column is None
+         ):
+             return [

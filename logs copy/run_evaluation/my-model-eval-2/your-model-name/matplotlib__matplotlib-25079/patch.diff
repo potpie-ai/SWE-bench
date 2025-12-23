@@ -1,0 +1,19 @@
+diff --git a/lib/matplotlib/colorbar.py b/lib/matplotlib/colorbar.py
+--- a/lib/matplotlib/colorbar.py
++++ b/lib/matplotlib/colorbar.py
+@@ -531,6 +531,15 @@
+         Calculate any free parameters based on the current cmap and norm,
+         and do all the drawing.
+         """
++        # Bail out early if the norm is not yet set up properly. This can
++        # happen during interactive use (e.g., when calling `plot.autoscale()`
++        # which temporarily sets vmin and vmax to None before recomputing them)
++        # and triggers a colorbar update before the norm's limits are ready.
++        if isinstance(self.norm, (colors.BoundaryNorm, colors.NoNorm)):
++            pass  # BoundaryNorm and NoNorm don't use vmin/vmax the same way
++        elif not self.norm.scaled():
++            return
++
+         if self.orientation == 'vertical':
+             if mpl.rcParams['ytick.minor.visible']:
+                 self.minorticks_on()

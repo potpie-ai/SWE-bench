@@ -1,0 +1,22 @@
+diff --git a/lib/mpl_toolkits/mplot3d/art3d.py b/lib/mpl_toolkits/mplot3d/art3d.py
+--- a/lib/mpl_toolkits/mplot3d/art3d.py
++++ b/lib/mpl_toolkits/mplot3d/art3d.py
+@@ -867,10 +867,16 @@
+         self.stale = True
+ 
+     def get_facecolor(self):
+-        return self._facecolors2d
++        # docstring inherited
++        return (self._facecolors2d if hasattr(self, '_facecolors2d')
++                else self._facecolor3d if hasattr(self, '_facecolor3d')
++                else super().get_facecolor())
+ 
+     def get_edgecolor(self):
+-        return self._edgecolors2d
++        # docstring inherited
++        return (self._edgecolors2d if hasattr(self, '_edgecolors2d')
++                else self._edgecolor3d if hasattr(self, '_edgecolor3d')
++                else super().get_edgecolor())
+ 
+ 
+ def poly_collection_2d_to_3d(col, zs=0, zdir='z'):

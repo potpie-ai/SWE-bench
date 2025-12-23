@@ -1,0 +1,18 @@
+diff --git a/sympy/simplify/trigsimp.py b/sympy/simplify/trigsimp.py
+--- a/sympy/simplify/trigsimp.py
++++ b/sympy/simplify/trigsimp.py
+@@ -510,6 +510,16 @@
+         'old': lambda x: trigsimp_old(x, **opts),
+                    }[method]
+ 
++    # Convert exp to trig if it helps trigsimp recognize patterns
++    # This is useful for expressions like exp(I*k) which should be cos(k) + I*sin(k)
++    if expr.has(exp):
++        rewritten = expr.rewrite(cos)
++        # Only use the rewritten version if:
++        # 1. It doesn't introduce I where there was none (e.g., exp(x) -> cos(I*x) + I*... is bad)
++        # 2. It contains trig functions that trigsimp can work with
++        if not (rewritten.has(I) and not expr.has(I)) and rewritten.has(TrigonometricFunction):
++            expr = rewritten
++
+     return trigsimpfunc(expr)

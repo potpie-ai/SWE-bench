@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14672",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "00ea883ef56fb5e092cbe4a6f7ff2e7470886ac4",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py\n--- a/django/db/models/fields/reverse_related.py\n+++ b/django/db/models/fields/reverse_related.py\n@@ -310,7 +310,7 @@ def __init__(self, field, to, related_name=None, related_query_name=None,\n     def identity(self):\n         return super().identity + (\n             self.through,\n-            self.through_fields,\n+            make_hashable(self.through_fields),\n             self.db_constraint,\n         )\n \n",
+  "hint": ""
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "pylint-dev__pylint-7993",
+  "model_patch": "",
+  "repo": "pylint-dev/pylint",
+  "commit_id": "e90702074e68e20dc8e5df5013ee3ecf22139c3e",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/pylint/reporters/text.py b/pylint/reporters/text.py\n--- a/pylint/reporters/text.py\n+++ b/pylint/reporters/text.py\n@@ -175,7 +175,7 @@ def on_set_current_module(self, module: str, filepath: str | None) -> None:\n         self._template = template\n \n         # Check to see if all parameters in the template are attributes of the Message\n-        arguments = re.findall(r\"\\{(.+?)(:.*)?\\}\", template)\n+        arguments = re.findall(r\"\\{(\\w+?)(:.*)?\\}\", template)\n         for argument in arguments:\n             if argument[0] not in MESSAGE_FIELDS:\n                 warnings.warn(\n",
+  "hint": "Subsequently, there is also this behavior with the quotes\r\n```\r\n$ pylint test.py --msg-template='\"Category\": \"{category}\"'\r\n************* Module test\r\nCategory\": \"convention\r\nCategory\": \"error\r\nCategory\": \"error\r\nCategory\": \"convention\r\nCategory\": \"convention\r\nCategory\": \"error\r\n\r\n$ pylint test.py --msg-template='\"\"Category\": \"{category}\"\"'\r\n************* Module test\r\n\"Category\": \"convention\"\r\n\"Category\": \"error\"\r\n\"Category\": \"error\"\r\n\"Category\": \"convention\"\r\n\"Category\": \"convention\"\r\n\"Category\": \"error\"\r\n```\nCommit that changed the behavior was probably this one: https://github.com/PyCQA/pylint/commit/7c3533ca48e69394391945de1563ef7f639cd27d#diff-76025f0bc82e83cb406321006fbca12c61a10821834a3164620fc17c978f9b7e\r\n\r\nAnd I tested on 2.11.1 that it is working as intended on that version.\nThanks for digging into this !"
+}

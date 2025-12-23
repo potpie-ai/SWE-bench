@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16046",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "ec13e801b820614ff374cb0046092caab8d67249",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/utils/numberformat.py b/django/utils/numberformat.py\n--- a/django/utils/numberformat.py\n+++ b/django/utils/numberformat.py\n@@ -25,6 +25,8 @@ def format(\n         module in locale.localeconv() LC_NUMERIC grouping (e.g. (3, 2, 0)).\n     * thousand_sep: Thousand separator symbol (for example \",\")\n     \"\"\"\n+    if number is None or number == \"\":\n+        return mark_safe(number)\n     use_grouping = (\n         use_l10n or (use_l10n is None and settings.USE_L10N)\n     ) and settings.USE_THOUSAND_SEPARATOR\n",
+  "hint": "proposed fix patch\nPlease provide a pull request, including a test."
+}

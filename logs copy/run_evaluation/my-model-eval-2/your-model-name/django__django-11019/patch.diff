@@ -1,0 +1,130 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -59,22 +59,27 @@
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
++        # Collect all CSS files by medium and merge using topological sort.
++        css = {}
++        # Gather all media types across all CSS lists.
++        all_media = set()
++        for css_dict in filter(None, self._css_lists):
++            all_media.update(css_dict.keys())
++        # For each medium, merge all lists at once using topological sort.
++        for medium in all_media:
++            lists_for_medium = [
++                css_dict.get(medium, [])
++                for css_dict in self._css_lists
++                if css_dict  # filter out None/empty dicts
++            ]
++            css[medium] = self.merge_all(lists_for_medium)
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Merge all JS lists at once using topological sort to avoid false
++        # ordering conflicts from sequential pairwise merging.
++        return self.merge_all(list(filter(None, self._js_lists)))
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -149,11 +154,86 @@
+                 last_insert_index = index
+         return combined_list
+ 
++    @staticmethod
++    def merge_all(lists):
++        """
++        Merge multiple lists using topological sorting to respect ordering
++        constraints from all original lists without false conflicts.
++
++        Each original list defines ordering edges: if file A appears before
++        file B in a list, that creates an edge A → B (A must come before B).
++        We collect all such edges and perform a topological sort to find an
++        order that satisfies all constraints. We only warn when there's an
++        actual cycle (a true conflict that can't be resolved).
++
++        This avoids false warnings that occur with sequential pairwise merging
++        where intermediate merge results create artificial constraints.
++        """
++        from collections import defaultdict
++
++        # Collect all unique files and build the dependency graph.
++        all_files = set()
++        # graph[a] = set of files that must come after a
++        graph = defaultdict(set)
++        # in_degree[b] = number of files that must come before b
++        in_degree = defaultdict(int)
++
++        for file_list in lists:
++            all_files.update(file_list)
++            # Create edges from consecutive pairs in this list.
++            for i in range(len(file_list) - 1):
++                a, b = file_list[i], file_list[i + 1]
++                # Only add the edge if it's new (avoid duplicate edges).
++                if b not in graph[a]:
++                    graph[a].add(b)
++                    in_degree[b] += 1
++
++        # Initialize in_degree for files with no incoming edges.
++        for f in all_files:
++            if f not in in_degree:
++                in_degree[f] = 0
++
++        # Kahn's algorithm for topological sort.
++        # Start with all files that have no dependencies (in_degree == 0).
++        # Use a list and sort to ensure deterministic ordering when multiple
++        # files have no dependencies.
++        queue = sorted([f for f in all_files if in_degree[f] == 0])
++        result = []
++
++        while queue:
++            # Pop the first item (lexicographically smallest among those ready).
++            current = queue.pop(0)
++            result.append(current)
++
++            # Reduce in_degree for all files that depend on current.
++            for neighbor in sorted(graph[current]):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    # Insert in sorted order to maintain determinism.
++                    queue.append(neighbor)
++                    queue.sort()
++
++        # Check for cycles (true conflicts).
++        if len(result) != len(all_files):
++            # There's a cycle - some files couldn't be ordered.
++            # Find the files involved in cycles for the warning.
++            cycle_files = [f for f in all_files if f not in result]
++            warnings.warn(
++                "Detected circular dependency in Media files. "
++                "Files with conflicts: %s" % ', '.join(sorted(cycle_files)),
++                MediaOrderConflictWarning,
++            )
++            # Append remaining files in sorted order as a fallback.
++            result.extend(sorted(cycle_files))
++
++        return result
++
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
++
+ 
+ 
+ def media_property(cls):

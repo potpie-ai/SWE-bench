@@ -1,0 +1,38 @@
+diff --git a/sklearn/pipeline.py b/sklearn/pipeline.py
+--- a/sklearn/pipeline.py
++++ b/sklearn/pipeline.py
+@@ -207,30 +207,34 @@
+         Pipeline. This copy is shallow: modifying (or fitting) estimators in
+         the sub-pipeline will affect the larger pipeline and vice-versa.
+         However, replacing a value in `step` will not affect a copy.
+         """
+         if isinstance(ind, slice):
+             if ind.step not in (1, None):
+                 raise ValueError('Pipeline slicing only supports a step of 1')
+             return self.__class__(self.steps[ind])
+         try:
+             name, est = self.steps[ind]
+         except TypeError:
+             # Not an int, try get step by name
+             return self.named_steps[ind]
+         return est
+ 
++    def __len__(self):
++        """Returns the length of the Pipeline"""
++        return len(self.steps)
++
+     @property
+     def _estimator_type(self):
+         return self.steps[-1][1]._estimator_type
+ 
+     @property
+     def named_steps(self):
+         # Use Bunch object to improve autocomplete
+         return Bunch(**dict(self.steps))
+ 
+     @property
+     def _final_estimator(self):
+         estimator = self.steps[-1][1]
+         return 'passthrough' if estimator is None else estimator
+ 
+     # Estimator interface

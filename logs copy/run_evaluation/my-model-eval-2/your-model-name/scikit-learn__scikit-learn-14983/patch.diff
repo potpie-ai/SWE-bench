@@ -1,0 +1,29 @@
+diff --git a/sklearn/model_selection/_split.py b/sklearn/model_selection/_split.py
+--- a/sklearn/model_selection/_split.py
++++ b/sklearn/model_selection/_split.py
+@@ -1164,6 +1164,10 @@
+         return cv.get_n_splits(X, y, groups) * self.n_repeats
+ 
+ 
++    def __repr__(self):
++        return _build_repr(self)
++
++
+ class RepeatedKFold(_RepeatedSplits):
+     """Repeated K-Fold cross validator.
+ 
+@@ -1213,6 +1217,7 @@
+     RepeatedStratifiedKFold: Repeats Stratified K-Fold n times.
+     """
+     def __init__(self, n_splits=5, n_repeats=10, random_state=None):
++        self.n_splits = n_splits
+         super().__init__(
+             KFold, n_repeats, random_state, n_splits=n_splits)
+ 
+@@ -1266,6 +1271,7 @@
+     RepeatedKFold: Repeats K-Fold n times.
+     """
+     def __init__(self, n_splits=5, n_repeats=10, random_state=None):
++        self.n_splits = n_splits
+         super().__init__(
+             StratifiedKFold, n_repeats, random_state, n_splits=n_splits)

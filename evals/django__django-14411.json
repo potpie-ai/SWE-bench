@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14411",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "fa4e963ee7e6876581b5432363603571839ba00c",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/auth/forms.py b/django/contrib/auth/forms.py\n--- a/django/contrib/auth/forms.py\n+++ b/django/contrib/auth/forms.py\n@@ -50,6 +50,9 @@ def get_context(self, name, value, attrs):\n         context['summary'] = summary\n         return context\n \n+    def id_for_label(self, id_):\n+        return None\n+\n \n class ReadOnlyPasswordHashField(forms.Field):\n     widget = ReadOnlyPasswordHashWidget\n",
+  "hint": ""
+}

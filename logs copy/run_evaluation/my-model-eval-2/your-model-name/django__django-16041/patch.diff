@@ -1,0 +1,21 @@
+diff --git a/django/forms/formsets.py b/django/forms/formsets.py
+--- a/django/forms/formsets.py
++++ b/django/forms/formsets.py
+@@ -212,11 +212,16 @@
+         Return additional keyword arguments for each individual formset form.
+ 
+         index will be None if the form being constructed is a new empty
+         form.
+         """
+-        return self.form_kwargs.copy()
++        kwargs = self.form_kwargs.copy()
++        if index is None:
++            # empty_permitted is set explicitly in empty_form, so remove it
++            # from kwargs to avoid duplicate keyword argument error.
++            kwargs.pop('empty_permitted', None)
++        return kwargs
+ 
+     def _construct_form(self, i, **kwargs):
+         """Instantiate and return the i-th form instance in a formset."""
+         defaults = {
+             "auto_id": self.auto_id,

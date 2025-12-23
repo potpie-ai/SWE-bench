@@ -1,0 +1,85 @@
+diff --git a/test_bug_trace.py b/test_bug_trace.py
+--- a/test_bug_trace.py
++++ b/test_bug_trace.py
+@@ -0,0 +1,69 @@
++from sympy import symbols, cancel, Poly
++from sympy.polys.polytools import parallel_poly_from_expr
++from sympy.polys.polyoptions import set_defaults
++
++t, a = symbols('t a')
++
++bug = a * (-t + (-t + 1) * (2 * t - 1)) / (2 * t - 1)
++print('Original bug expression:', bug)
++print()
++
++P, Q = bug.as_numer_denom()
++print('P (numerator):', P)
++print('Q (denominator):', Q)
++print()
++
++# Create poly from expression like apart does
++options = set_defaults({}, extension=True)
++(P_poly, Q_poly), opt = parallel_poly_from_expr((P, Q), t, **options)
++
++print('P_poly:', P_poly)
++print('Q_poly:', Q_poly)
++print('P_poly.is_multivariate:', P_poly.is_multivariate)
++print()
++
++# What does f.cancel() return?
++fc = bug.cancel()
++print('bug.cancel() returns:', fc)
++print('fc != bug:', fc != bug)
++print()
++
++# What about cancel(bug, t)?  
++fc_t = cancel(bug, t)
++print('cancel(bug, t) returns:', fc_t)
++print()
++
++# Now let's trace through what happens at line 128
++# common, P, Q = P.cancel(Q)
++common, P_new, Q_new = P_poly.cancel(Q_poly)
++print('After P_poly.cancel(Q_poly):')
++print('  common:', common)
++print('  P_new:', P_new)
++print('  Q_new:', Q_new)
++print()
++
++# Now let's see what happens in div
++# poly, P = P.div(Q, auto=True)
++poly, P_after_div = P_new.div(Q_new, auto=True)
++print('After P_new.div(Q_new):')
++print('  poly (quotient):', poly)
++print('  P_after_div (remainder):', P_after_div)
++print()
++
++# Now let's check rat_clear_denoms
++# P, Q = P.rat_clear_denoms(Q)
++P_cleared, Q_cleared = P_after_div.rat_clear_denoms(Q_new)
++print('After rat_clear_denoms:')
++print('  P_cleared:', P_cleared)
++print('  Q_cleared:', Q_cleared)
++print()
++
++# Final result would be
++print('Q_cleared.degree():', Q_cleared.degree())
++if Q_cleared.degree() <= 1:
++    partial = P_cleared/Q_cleared
++    print('partial (since degree <= 1):', partial)
++print()
++
++print('Final result would be: common * (poly.as_expr() + partial)')
++print('  = {} * ({} + {})'.format(common, poly.as_expr(), partial))
+
+diff --git a/sympy/polys/partfrac.py b/sympy/polys/partfrac.py
+--- a/sympy/polys/partfrac.py
++++ b/sympy/polys/partfrac.py
+@@ -118,7 +118,7 @@
+             return f.xreplace(dict(reps))
+ 
+     if P.is_multivariate:
+-        fc = f.cancel()
++        fc = f.cancel(x)
+         if fc != f:
+             return apart(fc, x=x, full=full, **_options)

@@ -1,0 +1,12 @@
+{
+  "instance_id": "mwaskom__seaborn-3190",
+  "model_patch": "",
+  "repo": "mwaskom/seaborn",
+  "commit_id": "4a9e54962a29c12a8b103d75f838e0e795a6974d",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py\n--- a/seaborn/_core/scales.py\n+++ b/seaborn/_core/scales.py\n@@ -346,7 +346,7 @@ def _setup(\n                 vmin, vmax = data.min(), data.max()\n             else:\n                 vmin, vmax = new.norm\n-            vmin, vmax = axis.convert_units((vmin, vmax))\n+            vmin, vmax = map(float, axis.convert_units((vmin, vmax)))\n             a = forward(vmin)\n             b = forward(vmax) - forward(vmin)\n \n",
+  "hint": "Would this simply mean refactoring the code to use `^` or `xor` functions instead?"
+}

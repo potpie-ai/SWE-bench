@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-23262",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "fdc707f73a65a429935c01532cd3970d3355eab6",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/utilities/lambdify.py b/sympy/utilities/lambdify.py\n--- a/sympy/utilities/lambdify.py\n+++ b/sympy/utilities/lambdify.py\n@@ -956,9 +956,9 @@ def _recursive_to_string(doprint, arg):\n         return doprint(arg)\n     elif iterable(arg):\n         if isinstance(arg, list):\n-            left, right = \"[]\"\n+            left, right = \"[\", \"]\"\n         elif isinstance(arg, tuple):\n-            left, right = \"()\"\n+            left, right = \"(\", \",)\"\n         else:\n             raise NotImplementedError(\"unhandled type: %s, %s\" % (type(arg), arg))\n         return left +', '.join(_recursive_to_string(doprint, e) for e in arg) + right\n",
+  "hint": "Bisected to 6ccd2b07ded5074941bb80b5967d60fa1593007a from #21993.\r\n\r\nCC @bjodah \nAs a work around for now, you can use the `Tuple` object from sympy. Note that it is constructed slightly differently from a python `tuple`, rather than giving a `list`, you give it multiple input arguments (or you can put a `*` in front of your list):\r\n```python\r\n>>> inspect.getsource(lambdify([], Tuple(*[1])))\r\ndef _lambdifygenerated():\\n    return (1,)\\n\r\n>>> inspect.getsource(lambdify([], Tuple(1)))\r\ndef _lambdifygenerated():\\n    return (1,)\\n\r\n```\r\nOf course the problem should also be fixed. `lambdify` is in a bit of an awkward spot, it supports a lot of different input and output formats that make it practically impossible to keep any functionality that is not explicitly tested for whenever you make a change.\n\r\n\r\n\r\n> As a work around for now, you can use the `Tuple` object from sympy. Note that it is constructed slightly differently from a python `tuple`, rather than giving a `list`, you give it multiple input arguments (or you can put a `*` in front of your list):\r\n\r\nThank you! This is tested to be working in SymPy 1.6-1.10. Consider this issue addressed for now. \r\n\r\n`lambdify` (or generally, the code generation) is an extremely useful tool. Are you aware of any roadmap or discussions on the refactoring of `lambdify` (or codegen)? I would like to contribute to it. \r\n\nI want to put out a 1.10.1 bugfix release. Should this be fixed?"
+}

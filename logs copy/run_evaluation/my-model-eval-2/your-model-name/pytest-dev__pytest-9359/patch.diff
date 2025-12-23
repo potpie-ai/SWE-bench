@@ -1,0 +1,21 @@
+diff --git a/src/_pytest/_code/source.py b/src/_pytest/_code/source.py
+--- a/src/_pytest/_code/source.py
++++ b/src/_pytest/_code/source.py
+@@ -149,7 +149,16 @@
+     values: List[int] = []
+     for x in ast.walk(node):
+         if isinstance(x, (ast.stmt, ast.ExceptHandler)):
+-            values.append(x.lineno - 1)
++            # In Python 3.8+, FunctionDef/AsyncFunctionDef/ClassDef lineno is the `def`/`class` line,
++            # not the first decorator line. We need to use the first decorator's lineno if present.
++            # See https://bugs.python.org/issue33211 and https://bugs.python.org/issue38870.
++            if isinstance(x, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
++                if x.decorator_list:
++                    values.append(x.decorator_list[0].lineno - 1)
++                else:
++                    values.append(x.lineno - 1)
++            else:
++                values.append(x.lineno - 1)
+             for name in ("finalbody", "orelse"):
+                 val: Optional[List[ast.stmt]] = getattr(x, name, None)
+                 if val:

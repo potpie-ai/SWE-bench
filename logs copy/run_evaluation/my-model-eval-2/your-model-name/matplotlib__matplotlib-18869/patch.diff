@@ -1,0 +1,49 @@
+diff --git a/lib/matplotlib/__init__.py b/lib/matplotlib/__init__.py
+--- a/lib/matplotlib/__init__.py
++++ b/lib/matplotlib/__init__.py
+@@ -130,6 +130,32 @@
+ }"""
+ 
+ 
++def _parse_to_version_info(version_str):
++    """
++    Parse a version string to a namedtuple analogous to sys.version_info.
++
++    See:
++    https://packaging.pypa.io/en/latest/version.html#packaging.version.parse
++    https://peps.python.org/pep-0440/
++    """
++    v = parse_version(version_str)
++    if v.pre is None and v.post is None and v.dev is None:
++        return _VersionInfo(v.major, v.minor, v.micro, 'final', 0)
++    elif v.dev is not None:
++        return _VersionInfo(v.major, v.minor, v.micro, 'dev', v.dev)
++    elif v.pre is not None:
++        releaselevel = {
++            'a': 'alpha', 'b': 'beta', 'rc': 'candidate'}.get(v.pre[0], v.pre[0])
++        return _VersionInfo(v.major, v.minor, v.micro, releaselevel, v.pre[1])
++    else:
++        # post release
++        return _VersionInfo(v.major, v.minor, v.micro, 'final', v.post)
++
++
++_VersionInfo = namedtuple('_VersionInfo',
++                          ('major', 'minor', 'micro', 'releaselevel', 'serial'))
++
++
+ def __getattr__(name):
+     if name == "__version__":
+         import setuptools_scm
+@@ -148,7 +174,12 @@
+         else:  # Get the version from the _version.py setuptools_scm file.
+             __version__ = _version.version
+         return __version__
++    if name == "__version_info__":
++        global __version_info__  # cache it.
++        __version_info__ = _parse_to_version_info(__version__)
++        return __version_info__
+     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
++
+ 
+ 
+ def _check_versions():

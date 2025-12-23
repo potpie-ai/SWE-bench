@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-5227",
+  "model_patch": "",
+  "repo": "pytest-dev/pytest",
+  "commit_id": "2051e30b9b596e944524ccb787ed20f9f5be93e3",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/src/_pytest/logging.py b/src/_pytest/logging.py\n--- a/src/_pytest/logging.py\n+++ b/src/_pytest/logging.py\n@@ -15,7 +15,7 @@\n from _pytest.config import create_terminal_writer\n from _pytest.pathlib import Path\n \n-DEFAULT_LOG_FORMAT = \"%(filename)-25s %(lineno)4d %(levelname)-8s %(message)s\"\n+DEFAULT_LOG_FORMAT = \"%(levelname)-8s %(name)s:%(filename)s:%(lineno)d %(message)s\"\n DEFAULT_LOG_DATE_FORMAT = \"%H:%M:%S\"\n \n \n",
+  "hint": ""
+}

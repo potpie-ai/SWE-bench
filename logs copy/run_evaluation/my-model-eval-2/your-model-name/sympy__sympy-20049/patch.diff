@@ -1,0 +1,55 @@
+diff --git a/sympy/physics/vector/point.py b/sympy/physics/vector/point.py
+--- a/sympy/physics/vector/point.py
++++ b/sympy/physics/vector/point.py
+@@ -515,13 +515,47 @@
+         >>> p1.vel(N)
+         10*N.x
+ 
++        Velocities will be automatically calculated if possible, otherwise a
++        ``ValueError`` will be returned. If it is possible to calculate
++        multiple different velocities from the relative points, the points
++        defined most directly relative to this point will be used. In the case
++        of inconsistent relative point definitions, the calculation method
++        may give different results depending on the setup. For this reason, it
++        is recommended that all points be defined relative to a common point.
++
++        >>> from sympy.physics.vector import dynamicsymbols
++        >>> q = dynamicsymbols('q')
++        >>> p2 = Point('p2')
++        >>> p1.set_pos(p2, q * N.x)
++        >>> p2.set_vel(N, 0)
++        >>> p1.vel(N)
++        q'*N.x
++
+         """
+ 
+         _check_frame(frame)
+-        if not (frame in self._vel_dict):
+-            raise ValueError('Velocity of point ' + self.name + ' has not been'
+-                             ' defined in ReferenceFrame ' + frame.name)
+-        return self._vel_dict[frame]
++        if frame in self._vel_dict:
++            return self._vel_dict[frame]
++
++        # Try to calculate velocity automatically by finding a point
++        # with known velocity using BFS
++        visited = []
++        queue = [self]
++        while queue:
++            node = queue.pop(0)
++            if node not in visited:
++                visited.append(node)
++                if frame in node._vel_dict:
++                    # Found a point with velocity defined in frame
++                    # Calculate: v_self = v_node + d/dt(pos_from)
++                    return node._vel_dict[frame] + self.pos_from(node).dt(frame)
++                for neighbor in node._pos_dict:
++                    if neighbor not in visited:
++                        queue.append(neighbor)
++
++        raise ValueError('Velocity of point ' + self.name + ' has not been'
++                         ' defined in ReferenceFrame ' + frame.name)
++
+ 
+     def partial_velocity(self, frame, *gen_speeds):
+         """Returns the partial velocities of the linear velocity vector of this

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13933",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "42e8cf47c7ee2db238bf91197ea398126c546741",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/forms/models.py b/django/forms/models.py\n--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -1284,7 +1284,11 @@ def to_python(self, value):\n                 value = getattr(value, key)\n             value = self.queryset.get(**{key: value})\n         except (ValueError, TypeError, self.queryset.model.DoesNotExist):\n-            raise ValidationError(self.error_messages['invalid_choice'], code='invalid_choice')\n+            raise ValidationError(\n+                self.error_messages['invalid_choice'],\n+                code='invalid_choice',\n+                params={'value': value},\n+            )\n         return value\n \n     def validate(self, value):\n",
+  "hint": "This message has been the same literally forever b2b6fc8e3c78671c8b6af2709358c3213c84d119. \u200bGiven that ChoiceField passes the value when raising the error, if you set \u200berror_messages you should be able to get the result you want.\nReplying to Carlton Gibson: This message has been the same literally forever b2b6fc8e3c78671c8b6af2709358c3213c84d119. \u200bGiven that ChoiceField passes the value when raising the error, if you set \u200berror_messages you should be able to get the result you want. That is ChoiceField. ModelChoiceField \u200bdoes not pass the value to the validation error. So, when the invalid value error is raised, you can't display the offending value even if you override the defaults.\nOK, if you want to look at submitting a PR we can see if any objections come up in review. Thanks.\nPR: \u200bhttps://github.com/django/django/pull/13933"
+}

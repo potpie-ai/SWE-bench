@@ -1,0 +1,14 @@
+{
+  "instance_id": "sympy__sympy-21627",
+  "model_patch": "",
+  "model_name_or_path": "your-model-name",
+  "repo": "sympy/sympy",
+  "commit_id": "126f80578140e752ad5135aac77b8ff887eede3e",
+  "expected_patch": "diff --git a/sympy/functions/elementary/complexes.py b/sympy/functions/elementary/complexes.py\n--- a/sympy/functions/elementary/complexes.py\n+++ b/sympy/functions/elementary/complexes.py\n@@ -607,6 +607,8 @@ def eval(cls, arg):\n             arg2 = -S.ImaginaryUnit * arg\n             if arg2.is_extended_nonnegative:\n                 return arg2\n+        if arg.is_extended_real:\n+            return\n         # reject result if all new conjugates are just wrappers around\n         # an expression that was already in the arg\n         conj = signsimp(arg.conjugate(), evaluate=False)\n",
+  "hint": "The problem is with `Abs`:\r\n```python\r\nIn [7]: e = S(\"im(acos(-i + acosh(-g + i)))\")                                                        \r\n\r\nIn [8]: abs(e)\r\n```\r\nThat leads to this:\r\nhttps://github.com/sympy/sympy/blob/126f80578140e752ad5135aac77b8ff887eede3e/sympy/functions/elementary/complexes.py#L616-L621\r\nand then `sqrt` leads here:\r\nhttps://github.com/sympy/sympy/blob/126f80578140e752ad5135aac77b8ff887eede3e/sympy/core/power.py#L336\r\nwhich goes to here:\r\nhttps://github.com/sympy/sympy/blob/126f80578140e752ad5135aac77b8ff887eede3e/sympy/core/power.py#L418\r\nAnd then that's trying to compute the same abs again.\r\n\r\nI'm not sure where the cycle should be broken but the code in `Abs.eval` seems excessively complicated.\r\n\n> That leads to this:\r\n\r\nThe test should be changed to:\r\n```python\r\n_arg = signsimp(arg, evaluate=False)\r\nif _arg != conj or _arg != -conj:\r\n```\n We should probably never come to this test when the argument is real. There should be something like `if arg.is_extended_real` before `conj` is computed.\nThere are tests for nonnegative, nonpositive and imaginary. So an additional test before coming to this part would be\r\n```python\r\nif arg.is_extended_real:\r\n    return\r\n...\r\n_arg = signsimp(arg, evaluate=False)\r\nif _arg not in (conj, -conj):\r\n...\r\n```",
+  "time_taken": "00:00",
+  "conversation_id": "",
+  "reasoning": "Error: Cannot connect to host localhost:8001 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8001, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8001)]",
+  "status": "error",
+  "error": "Cannot connect to host localhost:8001 ssl:default [Multiple exceptions: [Errno 61] Connect call failed ('::1', 8001, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 8001)]"
+}

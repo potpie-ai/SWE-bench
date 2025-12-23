@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13584",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "0e3c1879b06d839171b7d0a607d71bbb19a966a9",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/utils/_pprint.py b/sklearn/utils/_pprint.py\n--- a/sklearn/utils/_pprint.py\n+++ b/sklearn/utils/_pprint.py\n@@ -95,7 +95,7 @@ def _changed_params(estimator):\n     init_params = signature(init_func).parameters\n     init_params = {name: param.default for name, param in init_params.items()}\n     for k, v in params.items():\n-        if (v != init_params[k] and\n+        if (repr(v) != repr(init_params[k]) and\n                 not (is_scalar_nan(init_params[k]) and is_scalar_nan(v))):\n             filtered_params[k] = v\n     return filtered_params\n",
+  "hint": ""
+}

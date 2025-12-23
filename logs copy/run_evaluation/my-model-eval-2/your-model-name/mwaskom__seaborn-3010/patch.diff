@@ -1,0 +1,677 @@
+diff --git a/verify_notna_fix.py b/verify_notna_fix.py
+--- a/verify_notna_fix.py
++++ b/verify_notna_fix.py
+@@ -0,0 +1,128 @@
++"""
++Verification script to test that notna() correctly handles None values
++in the exact bug report scenario.
++"""
++
++import pandas as pd
++import numpy as np
++
++print("=" * 70)
++print("VERIFICATION: notna() Solution for PolyFit Bug")
++print("=" * 70)
++
++# Exact scenario from bug report
++data = {"x": [1, 2, 3, None, 4], "y": [1, 2, 3, 4, 5]}
++
++print("\n1. Original Data (Bug Report Case):")
++print(f"   x: {data['x']}")
++print(f"   y: {data['y']}")
++
++# Convert to pandas Series (as it would be in the actual code)
++x = pd.Series(data["x"])
++y = pd.Series(data["y"])
++
++print("\n2. Converted to pandas Series:")
++print(f"   x: {x.tolist()}")
++print(f"   y: {y.tolist()}")
++print(f"   x dtype: {x.dtype}")
++print(f"   y dtype: {y.dtype}")
++
++# Test notna() behavior
++print("\n3. Testing notna() on Series with None:")
++x_notna = x.notna()
++y_notna = y.notna()
++
++print(f"   x.notna(): {x_notna.tolist()}")
++print(f"   y.notna(): {y_notna.tolist()}")
++
++# Apply the fix
++print("\n4. Applying the proposed fix:")
++print("   Code: valid = x.notna() & y.notna()")
++valid = x_notna & y_notna
++print(f"   valid mask: {valid.tolist()}")
++
++# Filter the data
++x_clean = x[valid]
++y_clean = y[valid]
++
++print("\n5. Filtered data:")
++print(f"   x_clean: {x_clean.tolist()}")
++print(f"   y_clean: {y_clean.tolist()}")
++print(f"   x_clean dtype: {x_clean.dtype}")
++print(f"   y_clean dtype: {y_clean.dtype}")
++
++# Verify this works with np.polyfit
++print("\n6. Testing with np.polyfit (order=2):")
++try:
++    # This is what PolyFit does internally
++    order = 2
++    
++    # Check if we have enough unique values
++    if x_clean.nunique() <= order:
++        print(f"   WARNING: Not enough unique x values ({x_clean.nunique()} <= {order})")
++        print("   Cannot fit polynomial of this order")
++    else:
++        p = np.polyfit(x_clean, y_clean, order)
++        print(f"   SUCCESS: Polynomial coefficients: {p}")
++        
++        # Generate predictions
++        xx = np.linspace(x_clean.min(), x_clean.max(), 10)
++        yy = np.polyval(p, xx)
++        print(f"   Generated {len(xx)} prediction points")
++        print(f"   Sample predictions: x[0]={xx[0]:.2f} -> y={yy[0]:.2f}")
++        
++except Exception as e:
++    print(f"   FAILED: {type(e).__name__}: {e}")
++
++# Compare with original broken behavior
++print("\n7. What happens WITHOUT the fix (original bug):")
++print("   Attempting: np.polyfit(x, y, 2) with None values...")
++try:
++    x_with_none = pd.Series([1, 2, 3, None, 4])
++    y_with_none = pd.Series([1, 2, 3, 4, 5])
++    p_broken = np.polyfit(x_with_none, y_with_none, 2)
++    print(f"   Unexpected success: {p_broken}")
++except Exception as e:
++    print(f"   Expected failure: {type(e).__name__}: {e}")
++
++print("\n" + "=" * 70)
++print("CONCLUSION:")
++print("=" * 70)
++
++# Verify key points
++verifications = []
++
++# 1. None is converted to NaN in pandas Series
++verifications.append(("None -> NaN conversion", pd.isna(x.iloc[3])))
++
++# 2. notna() correctly identifies NaN/None
++verifications.append(("notna() detects None/NaN", not x_notna.iloc[3]))
++
++# 3. Filtering removes None/NaN values
++verifications.append(("Filtering removes None", len(x_clean) == 4))
++
++# 4. Cleaned data has expected values
++expected_x_clean = [1.0, 2.0, 3.0, 4.0]
++verifications.append(("Cleaned x has correct values", x_clean.tolist() == expected_x_clean))
++
++# 5. polyfit works with cleaned data
++try:
++    np.polyfit(x_clean, y_clean, 2)
++    polyfit_works = True
++except:
++    polyfit_works = False
++verifications.append(("np.polyfit works on cleaned data", polyfit_works))
++
++print()
++for desc, result in verifications:
++    status = "✓ PASS" if result else "✗ FAIL"
++    print(f"{status}: {desc}")
++
++all_passed = all(result for _, result in verifications)
++print()
++if all_passed:
++    print("✓ ALL VERIFICATIONS PASSED - The notna() fix correctly handles the bug!")
++else:
++    print("✗ SOME VERIFICATIONS FAILED - The fix may not work as expected")
++
++print("=" * 70)
+
+diff --git a/VERIFICATION_ANALYSIS.md b/VERIFICATION_ANALYSIS.md
+--- a/VERIFICATION_ANALYSIS.md
++++ b/VERIFICATION_ANALYSIS.md
+@@ -0,0 +1,199 @@
++# Verification Analysis: notna() Fix for PolyFit Bug
++
++## Bug Report Scenario
++
++**Input Data:**
++```python
++data = {"x": [1, 2, 3, None, 4], "y": [1, 2, 3, 4, 5]}
++
++
++**Problem:** When this data is passed to PolyFit, it causes a `LinAlgError` because `np.polyfit()` cannot handle None/NaN values.
++
++## Step-by-Step Trace Through the Fix
++
++### Step 1: Data Conversion to Pandas Series
++
++When the data enters the `_fit_predict` method:
++```python
++x = data["x"]  # pd.Series([1, 2, 3, None, 4])
++y = data["y"]  # pd.Series([1, 2, 3, 4, 5])
++
++
++**Key Behavior:** When a Python list containing `None` is converted to a pandas Series:
++- `None` is automatically converted to `np.nan` (NumPy's Not-a-Number)
++- The Series dtype becomes `float64` (to accommodate NaN)
++
++**Result:**
++```python
++x = pd.Series([1.0, 2.0, 3.0, np.nan, 4.0])  # dtype: float64
++y = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])     # dtype: float64 (or int64)
++
++
++### Step 2: Apply notna() Method
++
++The proposed fix:
++```python
++valid = x.notna() & y.notna()
++
++
++**pandas.Series.notna() Behavior:**
++- Returns a boolean Series where True indicates the value is NOT NA/NaN
++- For NaN values, returns False
++- For valid numeric values, returns True
++
++**Execution:**
++```python
++x.notna() returns: [True, True, True, False, True]
++y.notna() returns: [True, True, True, True, True]
++
++
++**Combined with & (AND operator):**
++```python
++valid = [True, True, True, False, True]
++
++
++**Critical Verification:** ✓ `x.notna()` returns `False` for the None/NaN value at index 3
++
++### Step 3: Filter the Data
++
++```python
++x_clean = x[valid]
++y_clean = y[valid]
++
++
++**Result:**
++```python
++x_clean = pd.Series([1.0, 2.0, 3.0, 4.0])  # Index: [0, 1, 2, 4]
++y_clean = pd.Series([1.0, 2.0, 3.0, 5.0])  # Index: [0, 1, 2, 4]
++
++
++**Critical Verification:** ✓ The None/NaN value is removed, leaving only valid numeric values
++
++### Step 4: Verify np.polyfit Compatibility
++
++**Check 1: Unique Values**
++```python
++x_clean.nunique() = 4  # Values: 1.0, 2.0, 3.0, 4.0
++order = 2
++4 > 2  # ✓ Sufficient unique values for 2nd order polynomial
++
++
++**Check 2: np.polyfit Execution**
++```python
++p = np.polyfit(x_clean, y_clean, 2)
++
++
++This will succeed because:
++- `x_clean` contains only valid float values (no NaN)
++- `y_clean` contains only valid float values (no NaN)
++- We have enough data points (4) for a 2nd order polynomial
++- The data forms a valid linear algebra problem
++
++### Step 5: Original Bug Reproduction (Without Fix)
++
++**Without the fix, what happens:**
++```python
++x = pd.Series([1, 2, 3, None, 4])  # Contains NaN at index 3
++y = pd.Series([1, 2, 3, 4, 5])
++
++# Direct call to np.polyfit with NaN
++p = np.polyfit(x, y, 2)
++
++
++**Result:** 
++
++numpy.linalg.LinAlgError: SVD did not converge in Linear Least Squares
++
++
++**Why:** NumPy's polyfit uses linear algebra operations (SVD) that cannot handle NaN values. The presence of NaN in the input data causes the SVD algorithm to fail.
++
++## Verification Results
++
++### ✓ Verification 1: None → NaN Conversion
++**Expected:** When None is in a list converted to pandas Series, it becomes np.nan  
++**Result:** ✓ CONFIRMED - This is standard pandas behavior
++
++### ✓ Verification 2: notna() Detects NaN
++**Expected:** `x.notna()` returns False for NaN values  
++**Result:** ✓ CONFIRMED - For index 3 (the None/NaN), notna() returns False
++
++### ✓ Verification 3: Boolean Masking Filters NaN
++**Expected:** `x[valid]` removes the NaN entry  
++**Result:** ✓ CONFIRMED - The filtered Series contains only [1.0, 2.0, 3.0, 4.0]
++
++### ✓ Verification 4: Cleaned Data Works with polyfit
++**Expected:** np.polyfit succeeds with cleaned data  
++**Result:** ✓ CONFIRMED - No NaN values remain, polyfit can solve the system
++
++### ✓ Verification 5: Fix Resolves LinAlgError
++**Expected:** The original LinAlgError is prevented  
++**Result:** ✓ CONFIRMED - By removing NaN before calling polyfit, the error cannot occur
++
++## Technical Details: Why notna() Is the Right Solution
++
++1. **Handles None and NaN uniformly:** In pandas, both None and np.nan are treated as missing values
++2. **Works with any data type:** notna() works on numeric, string, datetime Series
++3. **Explicit and readable:** The intent is clear - filter out missing values
++4. **Standard pandas pattern:** This is the idiomatic way to handle missing data in pandas
++5. **Preserves index alignment:** Boolean masking maintains proper index correspondence between x and y
++
++## Alternative Approaches Considered
++
++### Alternative 1: dropna()
++```python
++# Could use dropna() but requires aligning both Series
++clean_df = pd.DataFrame({"x": x, "y": y}).dropna()
++x_clean = clean_df["x"]
++y_clean = clean_df["y"]
++
++**Verdict:** More verbose, requires DataFrame creation. The notna() approach is more direct.
++
++### Alternative 2: np.isfinite()
++```python
++valid = np.isfinite(x) & np.isfinite(y)
++
++**Verdict:** Would work but less idiomatic for pandas Series. Also excludes inf values which may or may not be desired.
++
++### Alternative 3: Checking for None explicitly
++```python
++valid = (x != None) & (y != None)
++
++**Verdict:** ✗ Does NOT work - In pandas, None becomes NaN, and `NaN != None` is False (NaN comparisons are always False).
++
++## Conclusion
++
++**The notna() solution CORRECTLY handles the bug report case:**
++
++1. ✓ Detects None values (converted to NaN in pandas)
++2. ✓ Creates proper boolean mask for filtering
++3. ✓ Removes all NaN/None values from both x and y
++4. ✓ Produces clean arrays that np.polyfit can process
++5. ✓ Resolves the LinAlgError from the bug report
++
++**The fix is:**
++- **Correct:** Handles the exact scenario from the bug report
++- **Complete:** Handles NaN in both x and y
++- **Idiomatic:** Uses pandas best practices
++- **Robust:** Will handle any missing value representation in pandas
++
++## Recommended Test Case
++
++To ensure this fix works, add this test to `tests/_stats/test_regression.py`:
++
++```python
++def test_handles_none_values(self):
++    """Test that PolyFit handles None values in data without LinAlgError."""
++    data = pd.DataFrame({
++        "x": [1, 2, 3, None, 4],
++        "y": [1, 2, 3, 4, 5]
++    })
++    
++    groupby = GroupBy(["group"])
++    # This should not raise LinAlgError
++    res = PolyFit(order=2)(data, groupby, "x", {})
++    
++    # Verify we got valid results (None was filtered out)
++    assert len(res) > 0
++    assert res["x"].notna().all()
++    assert res["y"].notna().all()
++
+
+diff --git a/test_notna_behavior.py b/test_notna_behavior.py
+--- a/test_notna_behavior.py
++++ b/test_notna_behavior.py
+@@ -0,0 +1,115 @@
++"""
++Test to verify notna() behavior with None values.
++This demonstrates that the fix correctly handles the bug scenario.
++"""
++
++import pandas as pd
++import numpy as np
++
++def test_notna_with_none_values():
++    """Verify that notna() correctly identifies None values in pandas Series."""
++    
++    # Exact scenario from bug report
++    x = pd.Series([1, 2, 3, None, 4])
++    y = pd.Series([1, 2, 3, 4, 5])
++    
++    # Test 1: None is converted to NaN
++    assert pd.isna(x.iloc[3]), "None should be converted to NaN in pandas Series"
++    print("✓ Test 1 passed: None converted to NaN")
++    
++    # Test 2: notna() detects NaN
++    x_notna = x.notna()
++    assert x_notna.iloc[0] == True, "Valid value should return True"
++    assert x_notna.iloc[1] == True, "Valid value should return True"
++    assert x_notna.iloc[2] == True, "Valid value should return True"
++    assert x_notna.iloc[3] == False, "None/NaN should return False"
++    assert x_notna.iloc[4] == True, "Valid value should return True"
++    print("✓ Test 2 passed: notna() correctly identifies NaN as False")
++    
++    # Test 3: Boolean masking with &
++    y_notna = y.notna()
++    valid = x_notna & y_notna
++    expected = pd.Series([True, True, True, False, True])
++    assert valid.equals(expected), "Combined mask should identify row 3 as invalid"
++    print("✓ Test 3 passed: Boolean AND operation works correctly")
++    
++    # Test 4: Filtering removes None/NaN
++    x_clean = x[valid]
++    y_clean = y[valid]
++    assert len(x_clean) == 4, "Should have 4 values after filtering"
++    assert len(y_clean) == 4, "Should have 4 values after filtering"
++    assert x_clean.tolist() == [1.0, 2.0, 3.0, 4.0], "Cleaned x should match expected"
++    assert y_clean.tolist() == [1.0, 2.0, 3.0, 5.0], "Cleaned y should match expected (note: 5, not 4)"
++    print("✓ Test 4 passed: Filtering removes None/NaN values")
++    
++    # Test 5: Cleaned data has no NaN
++    assert x_clean.notna().all(), "Cleaned x should have no NaN values"
++    assert y_clean.notna().all(), "Cleaned y should have no NaN values"
++    print("✓ Test 5 passed: Cleaned data contains no NaN values")
++    
++    # Test 6: np.polyfit works with cleaned data
++    try:
++        p = np.polyfit(x_clean, y_clean, 2)
++        print(f"✓ Test 6 passed: np.polyfit succeeded with coefficients: {p}")
++    except Exception as e:
++        raise AssertionError(f"np.polyfit should work with cleaned data: {e}")
++    
++    # Test 7: np.polyfit fails with uncleaned data (original bug)
++    try:
++        p_broken = np.polyfit(x, y, 2)
++        print(f"✗ Test 7 UNEXPECTED: np.polyfit succeeded with NaN values: {p_broken}")
++        print("  (This might succeed in some numpy versions but typically fails)")
++    except (np.linalg.LinAlgError, ValueError) as e:
++        print(f"✓ Test 7 passed: np.polyfit fails with NaN as expected: {type(e).__name__}")
++    
++    print("\n" + "="*70)
++    print("ALL TESTS PASSED: notna() solution correctly handles the bug!")
++    print("="*70)
++
++def test_edge_cases():
++    """Test edge cases for the notna() solution."""
++    
++    print("\nTesting edge cases...")
++    
++    # Edge case 1: Multiple None values
++    x = pd.Series([1, None, 3, None, 5])
++    y = pd.Series([1, 2, 3, 4, 5])
++    valid = x.notna() & y.notna()
++    x_clean = x[valid]
++    assert len(x_clean) == 3, "Should handle multiple None values"
++    assert x_clean.tolist() == [1.0, 3.0, 5.0], "Should filter all None values"
++    print("✓ Edge case 1 passed: Multiple None values handled")
++    
++    # Edge case 2: None in both x and y
++    x = pd.Series([1, 2, None, 4, 5])
++    y = pd.Series([1, None, 3, 4, 5])
++    valid = x.notna() & y.notna()
++    x_clean = x[valid]
++    y_clean = y[valid]
++    assert len(x_clean) == 3, "Should handle None in both Series"
++    assert x_clean.tolist() == [1.0, 4.0, 5.0], "Should filter rows with None in either"
++    assert y_clean.tolist() == [1.0, 4.0, 5.0], "Should filter rows with None in either"
++    print("✓ Edge case 2 passed: None in both x and y handled")
++    
++    # Edge case 3: All valid values
++    x = pd.Series([1, 2, 3, 4, 5])
++    y = pd.Series([1, 2, 3, 4, 5])
++    valid = x.notna() & y.notna()
++    x_clean = x[valid]
++    assert len(x_clean) == 5, "Should keep all values when none are None"
++    print("✓ Edge case 3 passed: All valid values preserved")
++    
++    # Edge case 4: Explicit np.nan (not just None)
++    x = pd.Series([1, 2, np.nan, 4, 5])
++    y = pd.Series([1, 2, 3, 4, 5])
++    valid = x.notna() & y.notna()
++    x_clean = x[valid]
++    assert len(x_clean) == 4, "Should handle explicit np.nan"
++    assert x_clean.tolist() == [1.0, 2.0, 4.0, 5.0], "Should filter np.nan"
++    print("✓ Edge case 4 passed: Explicit np.nan handled")
++    
++    print("\nAll edge case tests passed!")
++
++if __name__ == "__main__":
++    test_notna_with_none_values()
++    test_edge_cases()
+
+diff --git a/VERIFICATION_SUMMARY.md b/VERIFICATION_SUMMARY.md
+--- a/VERIFICATION_SUMMARY.md
++++ b/VERIFICATION_SUMMARY.md
+@@ -0,0 +1,199 @@
++# Verification Summary: notna() Fix for PolyFit Bug
++
++## Executive Summary
++
++✅ **VERIFIED:** The `notna()` solution correctly handles the reported bug case with None values.
++
++## Bug Report Scenario
++
++**Input:** `{"x": [1, 2, 3, None, 4], "y": [1, 2, 3, 4, 5]}`  
++**Error:** `LinAlgError` when passed to `PolyFit`  
++**Root Cause:** `np.polyfit()` cannot handle NaN/None values
++
++## Proposed Fix
++
++```python
++valid = x.notna() & y.notna()
++x_clean = x[valid]
++y_clean = y[valid]
++
++
++## Verification Results
++
++### 1. Trace Through Exact Bug Scenario
++
++**Step 1: Data Entry**
++```python
++data = {"x": [1, 2, 3, None, 4], "y": [1, 2, 3, 4, 5]}
++x = data["x"]  # pd.Series in PolyFit context
++y = data["y"]
++
++
++**Step 2: None → NaN Conversion**
++When Python `None` enters a pandas Series:
++- ✅ Automatically converted to `np.nan`
++- ✅ Series dtype becomes `float64`
++
++Result:
++```python
++x = pd.Series([1.0, 2.0, 3.0, np.nan, 4.0])  # dtype: float64
++
++
++**Step 3: Apply notna()**
++```python
++x.notna() → [True, True, True, False, True]
++y.notna() → [True, True, True, True, True]
++
++
++✅ **CONFIRMED:** `x.notna()` returns `False` for the None/NaN value at index 3
++
++**Step 4: Combine Masks**
++```python
++valid = x.notna() & y.notna()
++      = [True, True, True, False, True]
++
++
++✅ **CONFIRMED:** Boolean AND correctly identifies the invalid row
++
++**Step 5: Filter Data**
++```python
++x_clean = x[valid] = [1.0, 2.0, 3.0, 4.0]
++y_clean = y[valid] = [1.0, 2.0, 3.0, 5.0]  # Note: corresponds to indices [0,1,2,4]
++
++
++✅ **CONFIRMED:** None/NaN value is removed, leaving only valid numeric values
++
++**Step 6: Verify polyfit Works**
++```python
++# Check sufficient unique values
++x_clean.nunique() = 4  (> order=2) ✓
++
++# Call polyfit
++p = np.polyfit(x_clean, y_clean, 2)  # SUCCESS - no LinAlgError
++
++
++✅ **CONFIRMED:** `np.polyfit()` succeeds with cleaned data
++
++### 2. Specific Verification Points
++
++| Check | Expected | Actual | Status |
++|-------|----------|--------|--------|
++| None converted to NaN | `pd.isna(x.iloc[3]) == True` | True | ✅ PASS |
++| notna() detects NaN | `x.notna().iloc[3] == False` | False | ✅ PASS |
++| Filtering removes NaN | `len(x_clean) == 4` | 4 | ✅ PASS |
++| Cleaned values correct | `x_clean.tolist() == [1.0, 2.0, 3.0, 4.0]` | Match | ✅ PASS |
++| No NaN in cleaned data | `x_clean.notna().all() == True` | True | ✅ PASS |
++| polyfit succeeds | No LinAlgError raised | Success | ✅ PASS |
++
++### 3. Consistency with Seaborn Codebase
++
++The `notna()` pattern is ALREADY USED in seaborn:
++
++**Example from `seaborn/axisgrid.py` (lines 1088-1090):**
++```python
++if self._dropna:
++    not_na = vector.notna()
++    if hue is not None:
++        not_na &= hue.notna()
++
++
++✅ **CONFIRMED:** The proposed fix follows existing seaborn patterns
++
++### 4. Edge Cases Verified
++
++| Edge Case | Behavior | Status |
++|-----------|----------|--------|
++| Multiple None values | All filtered correctly | ✅ PASS |
++| None in both x and y | Rows with any None removed | ✅ PASS |
++| All valid values | All values preserved | ✅ PASS |
++| Explicit np.nan | Handled same as None | ✅ PASS |
++
++## Technical Details
++
++### Why notna() Correctly Handles None
++
++1. **Pandas Automatic Conversion:**
++   - When `None` is in a Python list → pandas converts to `np.nan`
++   - This is standard pandas behavior for numeric Series
++
++2. **notna() Definition:**
++   - Returns `True` for valid values
++   - Returns `False` for `NaN`, `None`, `pd.NA`, `pd.NaT`
++   - Works consistently across all pandas dtypes
++
++3. **Boolean Masking:**
++   - `x[valid]` creates a new Series with only `True` indices
++   - Maintains index correspondence between x and y
++   - Preserves data types and metadata
++
++### Why This Fixes the LinAlgError
++
++**Original Error Path:**
++
++Data with None → pd.Series with NaN → np.polyfit(x_with_nan, y, 2)
++                                           ↓
++                                    SVD algorithm encounters NaN
++                                           ↓
++                                    LinAlgError: SVD did not converge
++
++
++**Fixed Path:**
++
++Data with None → pd.Series with NaN → Filter with notna()
++                                           ↓
++                                    Clean arrays (no NaN)
++                                           ↓
++                                    np.polyfit(x_clean, y_clean, 2)
++                                           ↓
++                                    SUCCESS
++
++
++## Conclusion
++
++### All Verification Criteria Met ✅
++
++1. ✅ **Traces exact bug scenario:** Step-by-step trace shows None → NaN → filtered
++2. ✅ **Verifies notna() detection:** Confirmed `False` for None/NaN values
++3. ✅ **Confirms valid arrays:** Cleaned arrays contain only numeric values
++4. ✅ **Resolves LinAlgError:** np.polyfit succeeds after filtering
++
++### Additional Confirmations
++
++- ✅ Follows existing seaborn patterns (found in axisgrid.py)
++- ✅ Handles edge cases (multiple None, both x and y, explicit NaN)
++- ✅ Idiomatic pandas code (notna() is the standard approach)
++- ✅ Maintains data integrity (index correspondence preserved)
++
++## Recommendation
++
++**The notna() solution is CORRECT and COMPLETE.**
++
++It should be implemented as:
++
++```python
++def _fit_predict(self, data):
++    x = data["x"]
++    y = data["y"]
++    
++    # Filter out missing values
++    valid = x.notna() & y.notna()
++    x_clean = x[valid]
++    y_clean = y[valid]
++    
++    if x_clean.nunique() <= self.order:
++        # TODO warn?
++        xx = yy = []
++    else:
++        p = np.polyfit(x_clean, y_clean, self.order)
++        xx = np.linspace(x_clean.min(), x_clean.max(), self.gridsize)
++        yy = np.polyval(p, xx)
++    
++    return pd.DataFrame(dict(x=xx, y=yy))
++
++
++This fix:
++- Resolves the reported LinAlgError
++- Handles the exact bug scenario `[1, 2, 3, None, 4]`
++- Follows seaborn's existing patterns
++- Is robust to edge cases
++- Uses idiomatic pandas code
+
+diff --git a/seaborn/_stats/regression.py b/seaborn/_stats/regression.py
+--- a/seaborn/_stats/regression.py
++++ b/seaborn/_stats/regression.py
+@@ -23,6 +23,12 @@
+ 
+         x = data["x"]
+         y = data["y"]
++        
++        # Filter out missing values
++        valid = x.notna() & y.notna()
++        x = x[valid]
++        y = y[valid]
++        
+         if x.nunique() <= self.order:
+             # TODO warn?
+             xx = yy = []

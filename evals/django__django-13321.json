@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13321",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "35b03788b0607c1f8d2b64e4fa9e1669b0907ea4",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/sessions/backends/base.py b/django/contrib/sessions/backends/base.py\n--- a/django/contrib/sessions/backends/base.py\n+++ b/django/contrib/sessions/backends/base.py\n@@ -121,6 +121,15 @@ def decode(self, session_data):\n             return signing.loads(session_data, salt=self.key_salt, serializer=self.serializer)\n         # RemovedInDjango40Warning: when the deprecation ends, handle here\n         # exceptions similar to what _legacy_decode() does now.\n+        except signing.BadSignature:\n+            try:\n+                # Return an empty session if data is not in the pre-Django 3.1\n+                # format.\n+                return self._legacy_decode(session_data)\n+            except Exception:\n+                logger = logging.getLogger('django.security.SuspiciousSession')\n+                logger.warning('Session data corrupted')\n+                return {}\n         except Exception:\n             return self._legacy_decode(session_data)\n \n",
+  "hint": "I tried to run clearsessions, but that didn't help. The only workaround was to delete all rows in the django_session table.\nThanks for this report, however I cannot reproduce this issue. Can you provide a sample project? Support for user sessions created by older versions of Django remains until Django 4.0. See similar tickets #31864, #31592, and #31274, this can be a duplicate of one of them.\nThanks for the response. It does look similar to the other issues you posted. I don't have a reproducible instance at present. The only way I can think to reproduce would be to start up a 3.0 site, login, wait for the session to expire, then upgrade to 3.1. These are the steps that would have happened on the environment where I encountered the issue.\nThanks I was able to reproduce this issue with an invalid session data. Regression in d4fff711d4c97356bd6ba1273d2a5e349326eb5f."
+}

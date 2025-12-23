@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13757",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "3f140dde51c0fe6c350acb7727bbe489a99f0632",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/fields/json.py b/django/db/models/fields/json.py\n--- a/django/db/models/fields/json.py\n+++ b/django/db/models/fields/json.py\n@@ -366,14 +366,25 @@ def process_rhs(self, compiler, connection):\n class KeyTransformIsNull(lookups.IsNull):\n     # key__isnull=False is the same as has_key='key'\n     def as_oracle(self, compiler, connection):\n+        sql, params = HasKey(\n+            self.lhs.lhs,\n+            self.lhs.key_name,\n+        ).as_oracle(compiler, connection)\n         if not self.rhs:\n-            return HasKey(self.lhs.lhs, self.lhs.key_name).as_oracle(compiler, connection)\n-        return super().as_sql(compiler, connection)\n+            return sql, params\n+        # Column doesn't have a key or IS NULL.\n+        lhs, lhs_params, _ = self.lhs.preprocess_lhs(compiler, connection)\n+        return '(NOT %s OR %s IS NULL)' % (sql, lhs), tuple(params) + tuple(lhs_params)\n \n     def as_sqlite(self, compiler, connection):\n+        template = 'JSON_TYPE(%s, %%s) IS NULL'\n         if not self.rhs:\n-            return HasKey(self.lhs.lhs, self.lhs.key_name).as_sqlite(compiler, connection)\n-        return super().as_sql(compiler, connection)\n+            template = 'JSON_TYPE(%s, %%s) IS NOT NULL'\n+        return HasKey(self.lhs.lhs, self.lhs.key_name).as_sql(\n+            compiler,\n+            connection,\n+            template=template,\n+        )\n \n \n class KeyTransformIn(lookups.In):\n",
+  "hint": ""
+}

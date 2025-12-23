@@ -1,0 +1,27 @@
+diff --git a/django/core/management/commands/inspectdb.py b/django/core/management/commands/inspectdb.py
+--- a/django/core/management/commands/inspectdb.py
++++ b/django/core/management/commands/inspectdb.py
+@@ -100,6 +100,14 @@
+                         )
+                     except NotImplementedError:
+                         relations = {}
++                    # Track how many times each table is referenced by FK/O2O
++                    used_relations = set()
++                    refs_to_same_model = set()
++                    for ref_col, ref_table in relations.values():
++                        if ref_table in used_relations:
++                            refs_to_same_model.add(ref_table)
++                        else:
++                            used_relations.add(ref_table)
+                     try:
+                         constraints = connection.introspection.get_constraints(
+                             cursor, table_name
+@@ -182,6 +190,8 @@
+                             if ref_db_table == table_name
+                             else table2model(ref_db_table)
+                         )
++                        if ref_db_table in refs_to_same_model:
++                            extra_params["related_name"] = att_name
+                         if rel_to in known_models:
+                             field_type = "%s(%s" % (rel_type, rel_to)
+                         else:

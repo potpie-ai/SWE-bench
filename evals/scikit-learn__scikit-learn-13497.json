@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13497",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "26f690961a52946dd2f53bf0fdd4264b2ae5be90",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/feature_selection/mutual_info_.py b/sklearn/feature_selection/mutual_info_.py\n--- a/sklearn/feature_selection/mutual_info_.py\n+++ b/sklearn/feature_selection/mutual_info_.py\n@@ -10,7 +10,7 @@\n from ..preprocessing import scale\n from ..utils import check_random_state\n from ..utils.fixes import _astype_copy_false\n-from ..utils.validation import check_X_y\n+from ..utils.validation import check_array, check_X_y\n from ..utils.multiclass import check_classification_targets\n \n \n@@ -247,14 +247,16 @@ def _estimate_mi(X, y, discrete_features='auto', discrete_target=False,\n     X, y = check_X_y(X, y, accept_sparse='csc', y_numeric=not discrete_target)\n     n_samples, n_features = X.shape\n \n-    if discrete_features == 'auto':\n-        discrete_features = issparse(X)\n-\n-    if isinstance(discrete_features, bool):\n+    if isinstance(discrete_features, (str, bool)):\n+        if isinstance(discrete_features, str):\n+            if discrete_features == 'auto':\n+                discrete_features = issparse(X)\n+            else:\n+                raise ValueError(\"Invalid string value for discrete_features.\")\n         discrete_mask = np.empty(n_features, dtype=bool)\n         discrete_mask.fill(discrete_features)\n     else:\n-        discrete_features = np.asarray(discrete_features)\n+        discrete_features = check_array(discrete_features, ensure_2d=False)\n         if discrete_features.dtype != 'bool':\n             discrete_mask = np.zeros(n_features, dtype=bool)\n             discrete_mask[discrete_features] = True\n",
+  "hint": "I'll take this\n@hermidalc go for it :)\ni'm not sure ,but i think user will change the default value if it seem to be array or boolean mask....bcz auto is  default value it is not fixed.\nI haven't understood, @punkstar25 "
+}

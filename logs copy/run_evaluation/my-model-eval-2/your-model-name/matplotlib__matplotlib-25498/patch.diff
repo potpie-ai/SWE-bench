@@ -1,0 +1,15 @@
+diff --git a/lib/matplotlib/colorbar.py b/lib/matplotlib/colorbar.py
+--- a/lib/matplotlib/colorbar.py
++++ b/lib/matplotlib/colorbar.py
+@@ -510,6 +510,11 @@
+         if mappable.norm != self.norm:
+             self.norm = mappable.norm
+             self._reset_locator_formatter_scale()
++
++        # Ensure the mappable's norm has appropriate vmin and vmax set
++        # even if mappable.draw has not yet been called.
++        if mappable.get_array() is not None:
++            mappable.autoscale_None()
+ 
+         self._draw_all()
+         if isinstance(self.mappable, contour.ContourSet):

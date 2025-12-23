@@ -1,0 +1,34 @@
+diff --git a/lib/matplotlib/widgets.py b/lib/matplotlib/widgets.py
+--- a/lib/matplotlib/widgets.py
++++ b/lib/matplotlib/widgets.py
+@@ -898,14 +898,27 @@
+         # these checks ensure smooth behavior if the handles swap which one
+         # has a higher value. i.e. if one is dragged over and past the other.
+         if handle is not self._active_handle:
+             self._active_handle = handle
+ 
++        # Determine the position based on orientation
+         if self.orientation == "vertical":
+-            self._update_val_from_pos(event.ydata)
+-        else:
+-            self._update_val_from_pos(event.xdata)
++            pos = event.ydata
++        else:
++            pos = event.xdata
++
++        # Temporarily release mouse before firing callbacks to allow
++        # callbacks to modify the figure (e.g., clf(), add widgets) without
++        # mouse grab interference. This matches the Button widget pattern.
++        event.canvas.release_mouse(self.ax)
++        try:
++            self._update_val_from_pos(pos)
++        finally:
++            # Re-grab if still dragging and axes still exists in figure
++            if self.drag_active and self.ax in self.ax.figure.axes:
++                event.canvas.grab_mouse(self.ax)
++
+ 
+     def _format(self, val):
+         """Pretty-print *val*."""
+         if self.valfmt is not None:
+             return f"({self.valfmt % val[0]}, {self.valfmt % val[1]})"

@@ -1,0 +1,41 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -779,15 +779,33 @@
+         # Only include fields mentioned in the mask.
+         for field_name, field_mask in mask.items():
+             field = opts.get_field(field_name)
+-            field_select_mask = select_mask.setdefault(field, {})
++            # Handle filtered relations.
++            if filtered_relation := self._filtered_relations.get(field_name):
++                relation = opts.get_field(filtered_relation.relation_name)
++                field_select_mask = select_mask.setdefault((field_name, relation), {})
++                field = relation.field
++                related_model = field.model._meta.concrete_model
++            # Handle reverse relations (e.g., reverse OneToOneField).
++            elif hasattr(field, "field"):
++                field_select_mask = select_mask.setdefault(field.field, {})
++                related_model = field.field.model._meta.concrete_model
++            # Handle forward relations.
++            elif field.is_relation:
++                field_select_mask = select_mask.setdefault(field, {})
++                related_model = field.remote_field.model._meta.concrete_model
++            # Handle non-relational fields.
++            else:
++                select_mask[field] = {}
++                # Nested field on a non-relation is an error.
++                if field_mask:
++                    raise FieldError(next(iter(field_mask)))
++                continue
+             if field_mask:
+-                if not field.is_relation:
+-                    raise FieldError(next(iter(field_mask)))
+-                related_model = field.remote_field.model._meta.concrete_model
+                 self._get_only_select_mask(
+                     related_model._meta, field_mask, field_select_mask
+                 )
+         return select_mask
++
+ 
+     def get_select_mask(self):
+         """

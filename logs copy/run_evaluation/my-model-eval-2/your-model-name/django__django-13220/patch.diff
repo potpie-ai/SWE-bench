@@ -1,0 +1,44 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,40 @@
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ValidationError):
++            return NotImplemented
++
++        # Import make_hashable locally to avoid potential circular imports
++        from django.utils.hashable import make_hashable
++        from collections import Counter
++
++        # Helper to normalize an error to a hashable tuple
++        def error_to_tuple(error):
++            return (error.message, error.code, make_hashable(error.params))
++
++        # Helper to normalize error_list to a Counter of error tuples (handles duplicates)
++        def normalize_error_list(error_list):
++            return Counter(error_to_tuple(e) for e in error_list)
++
++        # Check if both are dict-type or both are list-type
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            # Both are dict-type
++            if self.error_dict.keys() != other.error_dict.keys():
++                return False
++            return all(
++                normalize_error_list(self.error_dict[key]) ==
++                normalize_error_list(other.error_dict[key])
++                for key in self.error_dict.keys()
++            )
++        elif hasattr(self, 'error_dict') or hasattr(other, 'error_dict'):
++            # One is dict-type, other is list-type - not equal
++            return False
++        else:
++            # Both are list-type
++            return normalize_error_list(self.error_list) == normalize_error_list(other.error_list)
++
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""

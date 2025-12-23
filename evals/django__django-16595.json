@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16595",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "f9fe062de5fc0896d6bbbf3f260b5c44473b3c77",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/migrations/operations/fields.py b/django/db/migrations/operations/fields.py\n--- a/django/db/migrations/operations/fields.py\n+++ b/django/db/migrations/operations/fields.py\n@@ -247,9 +247,9 @@ def migration_name_fragment(self):\n         return \"alter_%s_%s\" % (self.model_name_lower, self.name_lower)\n \n     def reduce(self, operation, app_label):\n-        if isinstance(operation, RemoveField) and self.is_same_field_operation(\n-            operation\n-        ):\n+        if isinstance(\n+            operation, (AlterField, RemoveField)\n+        ) and self.is_same_field_operation(operation):\n             return [operation]\n         elif (\n             isinstance(operation, RenameField)\n",
+  "hint": "Your analysis is correct Laurent, the reduction of multiple AlterField against the same model is simply not implemented today hence why you're running into this behaviour. Given you're already half way there \u200bI would encourage you to submit a PR that adds these changes and \u200ban optimizer regression test to cover them if you'd like to see this issue fixed in future versions of Django.\nThanks Simon, I submitted a PR.\n\u200bPR"
+}

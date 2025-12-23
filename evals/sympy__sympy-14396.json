@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-14396",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "f35ad6411f86a15dd78db39c29d1e5291f66f9b5",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:05",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/polys/polyoptions.py b/sympy/polys/polyoptions.py\n--- a/sympy/polys/polyoptions.py\n+++ b/sympy/polys/polyoptions.py\n@@ -405,7 +405,7 @@ class Domain(with_metaclass(OptionType, Option)):\n     _re_realfield = re.compile(r\"^(R|RR)(_(\\d+))?$\")\n     _re_complexfield = re.compile(r\"^(C|CC)(_(\\d+))?$\")\n     _re_finitefield = re.compile(r\"^(FF|GF)\\((\\d+)\\)$\")\n-    _re_polynomial = re.compile(r\"^(Z|ZZ|Q|QQ)\\[(.+)\\]$\")\n+    _re_polynomial = re.compile(r\"^(Z|ZZ|Q|QQ|R|RR|C|CC)\\[(.+)\\]$\")\n     _re_fraction = re.compile(r\"^(Z|ZZ|Q|QQ)\\((.+)\\)$\")\n     _re_algebraic = re.compile(r\"^(Q|QQ)\\<(.+)\\>$\")\n \n@@ -459,8 +459,12 @@ def preprocess(cls, domain):\n \n                 if ground in ['Z', 'ZZ']:\n                     return sympy.polys.domains.ZZ.poly_ring(*gens)\n-                else:\n+                elif ground in ['Q', 'QQ']:\n                     return sympy.polys.domains.QQ.poly_ring(*gens)\n+                elif ground in ['R', 'RR']:\n+                    return sympy.polys.domains.RR.poly_ring(*gens)\n+                else:\n+                    return sympy.polys.domains.CC.poly_ring(*gens)\n \n             r = cls._re_fraction.match(domain)\n \n",
+  "hint": "```\r\nIn [14]: Poly(1.2*x*y*z, x)\r\nOut[14]: Poly(1.2*y*z*x, x, domain='RR[y,z]')\r\n```\r\nI guess this is quite good\r\n\r\nI mean why would we wanna do this\r\n`In [15]: Poly(1.2*x*y*z, x, domain='RR[y,z]')`\r\n\r\nBTW, Is this issue still on?\nIt is still a valid issue. The preprocessing of options should be extended to accept polynomial rings with real coefficients.\nHello, \r\nI would like to have this issue assigned to me. I want to start contributing, and reading the code I think I can fix this as my first issue.\r\n\r\nThanks\n@3nr1c You don't need to have this issue assigned to you; if you have a solution, just send it a PR. Be sure to read [Development workflow](https://github.com/sympy/sympy/wiki/Development-workflow)."
+}

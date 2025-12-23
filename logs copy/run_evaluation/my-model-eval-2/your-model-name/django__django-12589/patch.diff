@@ -1,0 +1,18 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -104,8 +104,14 @@
+             for expr in self.query.group_by:
+                 if not hasattr(expr, 'as_sql'):
+                     expressions.append(self.query.resolve_ref(expr))
++                elif isinstance(expr, Ref):
++                    # References to annotations in the GROUP BY clause should
++                    # expand to their source expressions to avoid ambiguous
++                    # column name references.
++                    expressions.extend(expr.source.get_group_by_cols())
+                 else:
+                     expressions.append(expr)
++
+         # Note that even if the group_by is set, it is only the minimal
+         # set to group by. So, we need to add cols in select, order_by, and
+         # having into the select in any case.

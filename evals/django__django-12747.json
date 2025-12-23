@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12747",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "c86201b6ed4f8256b0a0520c08aa674f623d4127",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py\n--- a/django/db/models/deletion.py\n+++ b/django/db/models/deletion.py\n@@ -408,7 +408,8 @@ def delete(self):\n             # fast deletes\n             for qs in self.fast_deletes:\n                 count = qs._raw_delete(using=self.using)\n-                deleted_counter[qs.model._meta.label] += count\n+                if count:\n+                    deleted_counter[qs.model._meta.label] += count\n \n             # update fields\n             for model, instances_for_fieldvalues in self.field_updates.items():\n@@ -426,7 +427,8 @@ def delete(self):\n                 query = sql.DeleteQuery(model)\n                 pk_list = [obj.pk for obj in instances]\n                 count = query.delete_batch(pk_list, self.using)\n-                deleted_counter[model._meta.label] += count\n+                if count:\n+                    deleted_counter[model._meta.label] += count\n \n                 if not model._meta.auto_created:\n                     for obj in instances:\n",
+  "hint": "I guess we could adapt the code not to include any key if the count is zero in the second case."
+}

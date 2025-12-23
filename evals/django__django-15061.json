@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15061",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "2c01ebb4be5d53cbf6450f356c10e436025d6d07",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/forms/widgets.py b/django/forms/widgets.py\n--- a/django/forms/widgets.py\n+++ b/django/forms/widgets.py\n@@ -849,9 +849,7 @@ def get_context(self, name, value, attrs):\n         return context\n \n     def id_for_label(self, id_):\n-        if id_:\n-            id_ += '_0'\n-        return id_\n+        return ''\n \n     def value_from_datadict(self, data, files, name):\n         return [\n",
+  "hint": "I agree that we should remove for from MultiWidget's <label> but not because \"It has not sense\" but to improve accessibility when using a screen reader, see also #32338. It should be enough to return an empty string: def id_for_label(self, id_): return ''\n\u200bPR"
+}

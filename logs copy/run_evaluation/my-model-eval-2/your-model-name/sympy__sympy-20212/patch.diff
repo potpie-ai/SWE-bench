@@ -1,0 +1,374 @@
+diff --git a/test_negative_infinity_properties.py b/test_negative_infinity_properties.py
+--- a/test_negative_infinity_properties.py
++++ b/test_negative_infinity_properties.py
+@@ -0,0 +1,101 @@
++"""
++Test script to verify NegativeInfinity properties in SymPy
++
++Based on the assumptions system in sympy/core/assumptions.py:
++- Line 238: positive == extended_positive & finite
++- Line 239: negative == extended_negative & finite
++
++This means:
++- is_negative should be True only when BOTH is_extended_negative=True AND is_finite=True
++- Since NegativeInfinity has is_infinite=True (is_finite=False), 
++  its is_negative should be False, NOT True or None
++
++Expected behavior:
++- S.NegativeInfinity.is_negative should be False
++- S.NegativeInfinity.is_extended_negative should be True
++- S.Zero**S.NegativeInfinity should return S.ComplexInfinity (zoo)
++  but currently returns 0 because the check at line 2628 of numbers.py
++  uses is_negative instead of is_extended_negative
++"""
++from sympy import S
++
++print("Testing NegativeInfinity properties:")
++print("=" * 70)
++
++# Test 1: is_negative property
++print("\n1. S.NegativeInfinity.is_negative:")
++print(f"   Value: {S.NegativeInfinity.is_negative}")
++print(f"   Type: {type(S.NegativeInfinity.is_negative)}")
++print(f"   Expected: False (because is_finite=False)")
++
++# Test 2: is_positive property
++print("\n2. S.NegativeInfinity.is_positive:")
++print(f"   Value: {S.NegativeInfinity.is_positive}")
++print(f"   Type: {type(S.NegativeInfinity.is_positive)}")
++print(f"   Expected: False")
++
++# Test 3: is_extended_negative property
++print("\n3. S.NegativeInfinity.is_extended_negative:")
++print(f"   Value: {S.NegativeInfinity.is_extended_negative}")
++print(f"   Type: {type(S.NegativeInfinity.is_extended_negative)}")
++print(f"   Expected: True (explicitly set in class)")
++
++# Test 4: is_extended_positive property
++print("\n4. S.NegativeInfinity.is_extended_positive:")
++print(f"   Value: {S.NegativeInfinity.is_extended_positive}")
++print(f"   Type: {type(S.NegativeInfinity.is_extended_positive)}")
++print(f"   Expected: False")
++
++# Test 5: is_finite and is_infinite properties
++print("\n5. S.NegativeInfinity.is_finite and is_infinite:")
++print(f"   is_finite: {S.NegativeInfinity.is_finite}")
++print(f"   is_infinite: {S.NegativeInfinity.is_infinite}")
++print(f"   Expected: is_finite=False, is_infinite=True")
++
++# Test 6: Evaluate S.Zero**S.NegativeInfinity
++print("\n6. S.Zero**S.NegativeInfinity:")
++result = S.Zero**S.NegativeInfinity
++print(f"   Result: {result}")
++print(f"   Type: {type(result)}")
++print(f"   Is ComplexInfinity (zoo): {result == S.ComplexInfinity}")
++print(f"   Expected: ComplexInfinity (zoo)")
++print(f"   Issue: Zero._eval_power (line 2628) checks expt.is_negative")
++print(f"          but should check expt.is_extended_negative")
++
++# Test 7: Compare is_negative and is_extended_negative
++print("\n7. Comparison of is_negative vs is_extended_negative for -oo:")
++print(f"   is_negative: {S.NegativeInfinity.is_negative}")
++print(f"   is_extended_negative: {S.NegativeInfinity.is_extended_negative}")
++print(f"   Are they different? {S.NegativeInfinity.is_negative != S.NegativeInfinity.is_extended_negative}")
++print(f"   Expected: Yes, they should be different (False vs True)")
++
++# Additional diagnostic information
++print("\n" + "=" * 70)
++print("Additional diagnostics:")
++print(f"NegativeInfinity object: {S.NegativeInfinity}")
++print(f"NegativeInfinity class: {type(S.NegativeInfinity)}")
++
++# Let's also check for Infinity for comparison
++print("\n8. For comparison - Infinity properties:")
++print(f"   S.Infinity.is_positive: {S.Infinity.is_positive}")
++print(f"   S.Infinity.is_negative: {S.Infinity.is_negative}")
++print(f"   S.Infinity.is_extended_positive: {S.Infinity.is_extended_positive}")
++print(f"   S.Infinity.is_extended_negative: {S.Infinity.is_extended_negative}")
++print(f"   S.Infinity.is_finite: {S.Infinity.is_finite}")
++print(f"   S.Infinity.is_infinite: {S.Infinity.is_infinite}")
++print(f"   Expected: is_positive=False, is_extended_positive=True (parallel to -oo)")
++
++# Test related power expressions
++print("\n9. Related power expressions:")
++print(f"   S.Zero**S.Infinity: {S.Zero**S.Infinity}")
++print(f"   S.Zero**(-1): {S.Zero**(-1)}")
++print(f"   S.Zero**(-2): {S.Zero**(-2)}")
++print(f"   Expected: All negative exponents should give zoo")
++
++print("\n" + "=" * 70)
++print("SUMMARY:")
++print("The bug is in Zero._eval_power (line 2628 of sympy/core/numbers.py)")
++print("It checks 'expt.is_negative' but should check 'expt.is_extended_negative'")
++print("This is because infinities have is_negative=False (due to being infinite)")
++print("but is_extended_negative=True for -oo")
++print("=" * 70)
+
+diff --git a/ANALYSIS_SUMMARY.md b/ANALYSIS_SUMMARY.md
+--- a/ANALYSIS_SUMMARY.md
++++ b/ANALYSIS_SUMMARY.md
+@@ -0,0 +1,121 @@
++# Analysis Summary: NegativeInfinity Properties and Zero**(-oo) Bug
++
++## Key Findings
++
++### 1. NegativeInfinity Properties (from sympy/core/numbers.py lines 2994-3100)
++
++**Explicitly set properties:**
++- `is_extended_real = True` (line 3006)
++- `is_complex = False` (line 3007)
++- `is_commutative = True` (line 3008)
++- `is_infinite = True` (line 3009)
++- `is_comparable = True` (line 3010)
++- `is_extended_negative = True` (line 3011)
++- `is_number = True` (line 3012)
++- `is_prime = False` (line 3013)
++
++**NOT explicitly set:**
++- `is_negative` - not defined in the class
++- `is_positive` - not defined in the class
++- `is_finite` - derived from `is_infinite`
++
++### 2. Assumptions System Rules (from sympy/core/assumptions.py)
++
++**Line 238-239 define the critical relationship:**
++
++positive == extended_positive & finite
++negative == extended_negative & finite
++
++
++This means:
++- `is_negative` is `True` ONLY when BOTH `is_extended_negative=True` AND `is_finite=True`
++- Since `NegativeInfinity` has `is_infinite=True`, it has `is_finite=False`
++- Therefore: `NegativeInfinity.is_negative` evaluates to `False`
++
++### 3. Property Values for S.NegativeInfinity
++
++Based on the assumptions system:
++
++| Property | Value | Reason |
++|----------|-------|--------|
++| `is_negative` | `False` | `is_extended_negative & is_finite` = `True & False` = `False` |
++| `is_positive` | `False` | `is_extended_positive & is_finite` = `False & False` = `False` |
++| `is_extended_negative` | `True` | Explicitly set in class definition |
++| `is_extended_positive` | `False` | Derived (cannot be both extended_positive and extended_negative) |
++| `is_finite` | `False` | Derived from `is_infinite=True` |
++| `is_infinite` | `True` | Explicitly set in class definition |
++
++### 4. Comparison with S.Infinity
++
++For symmetry, `S.Infinity` should have:
++- `is_positive = False` (because `is_finite=False`)
++- `is_extended_positive = True` (explicitly set)
++
++### 5. The Bug in Zero._eval_power
++
++**Location:** `sympy/core/numbers.py` line 2628
++
++**Current code:**
++```python
++def _eval_power(self, expt):
++    if expt.is_positive:
++        return self
++    if expt.is_negative:  # <-- BUG: Should be is_extended_negative
++        return S.ComplexInfinity
++    # ... rest of method
++
++
++**Problem:**
++- Line 2628 checks `expt.is_negative`
++- For `S.NegativeInfinity`, `is_negative` returns `False` (not `True`)
++- Therefore, the condition is NOT satisfied
++- The method continues to other cases and eventually returns `0`
++
++**Expected behavior:**
++- `0**(-oo)` should return `S.ComplexInfinity` (zoo)
++- This is consistent with `0**(-1) = zoo`, `0**(-2) = zoo`, etc.
++
++**Fix:**
++Change line 2628 from:
++```python
++if expt.is_negative:
++
++to:
++```python
++if expt.is_extended_negative:
++
++
++### 6. Why is_extended_negative is the Correct Check
++
++The "extended" versions of properties include infinities:
++- `is_negative`: Only finite negative numbers
++- `is_extended_negative`: Finite negative numbers AND `-oo`
++
++For the power operation `0**x`:
++- When `x < 0` (any negative value, including `-oo`), the result should be `zoo`
++- The mathematical logic is: `0**(-a) = 1/0**a = 1/0 = zoo` for any positive `a`
++- This applies whether `x` is a finite negative number or `-oo`
++- Therefore, we need to check `is_extended_negative`, not just `is_negative`
++
++### 7. Test Cases
++
++**Currently broken:**
++```python
++S.Zero**S.NegativeInfinity  # Returns: 0, Expected: zoo
++
++
++**Currently working (should continue to work after fix):**
++```python
++S.Zero**(-1)  # Returns: zoo ✓
++S.Zero**(-2)  # Returns: zoo ✓
++S.Zero**S.Infinity  # Returns: 0 ✓ (positive exponent)
++
++
++## Conclusion
++
++The fix is simple and localized: change `expt.is_negative` to `expt.is_extended_negative` on line 2628 of `sympy/core/numbers.py` in the `Zero._eval_power` method.
++
++This change makes the code consistent with:
++1. The assumptions system's definitions
++2. The mathematical behavior expected for `0**(-oo)`
++3. The existing behavior for finite negative exponents
+
+diff --git a/ANSWERS_TO_QUESTIONS.md b/ANSWERS_TO_QUESTIONS.md
+--- a/ANSWERS_TO_QUESTIONS.md
++++ b/ANSWERS_TO_QUESTIONS.md
+@@ -0,0 +1,118 @@
++# Direct Answers to the 6 Questions
++
++## Question 1: What is the value of S.NegativeInfinity.is_negative?
++
++**Answer: `False`**
++
++**Explanation:**
++- The property `is_negative` is NOT explicitly set in the NegativeInfinity class
++- According to the assumptions system (sympy/core/assumptions.py line 239):
++  
++  negative == extended_negative & finite
++  
++- This means `is_negative` is `True` only when BOTH conditions are met:
++  - `is_extended_negative` is `True` ✓ (NegativeInfinity has this)
++  - `is_finite` is `True` ✗ (NegativeInfinity has `is_infinite=True`, so `is_finite=False`)
++- Therefore: `is_negative = True & False = False`
++
++## Question 2: What is the value of S.NegativeInfinity.is_positive?
++
++**Answer: `False`**
++
++**Explanation:**
++- According to the assumptions system (sympy/core/assumptions.py line 238):
++  
++  positive == extended_positive & finite
++  
++- For NegativeInfinity:
++  - `is_extended_positive` is `False` (it's extended_negative instead)
++  - `is_finite` is `False` (it's infinite)
++- Therefore: `is_positive = False & False = False`
++
++## Question 3: What is the value of S.NegativeInfinity.is_extended_negative?
++
++**Answer: `True`**
++
++**Explanation:**
++- This is explicitly set in the NegativeInfinity class definition
++- See sympy/core/numbers.py line 3011:
++  ```python
++  is_extended_negative = True
++  
++
++## Question 4: What is the value of S.NegativeInfinity.is_extended_positive?
++
++**Answer: `False`**
++
++**Explanation:**
++- This is derived by the assumptions system
++- According to sympy/core/assumptions.py line 224:
++  
++  extended_real == extended_negative | zero | extended_positive
++  
++- Since NegativeInfinity is `extended_negative` and not `zero`, it cannot be `extended_positive`
++- The assumptions system ensures mutual exclusivity
++
++## Question 5: What is the result of S.Zero**S.NegativeInfinity?
++
++**Answer: Currently returns `0` (incorrect), should return `S.ComplexInfinity` (zoo)**
++
++**Explanation:**
++- The Zero._eval_power method at line 2628 of sympy/core/numbers.py checks:
++  ```python
++  if expt.is_negative:
++      return S.ComplexInfinity
++  
++- Since `S.NegativeInfinity.is_negative` is `False` (see Question 1), this condition is NOT met
++- The method continues past this check and eventually returns `0`
++- **This is a bug** - mathematically, `0**(-oo)` should be `zoo` (ComplexInfinity)
++
++## Question 6: What is the difference between is_negative and is_extended_negative for -oo?
++
++**Answer: YES, they are different**
++
++**Values:**
++- `S.NegativeInfinity.is_negative = False`
++- `S.NegativeInfinity.is_extended_negative = True`
++
++**The Difference:**
++- `is_negative`: True only for **finite** negative numbers (e.g., -1, -2, -0.5)
++  - Formula: `is_negative = is_extended_negative & is_finite`
++  - Excludes `-oo` because it's infinite
++  
++- `is_extended_negative`: True for **finite negative numbers AND `-oo`**
++  - Includes infinities in the extended real number system
++  - This is the proper way to check "less than zero" in the extended reals
++
++**Why This Matters:**
++This difference is the root cause of the bug. The Zero._eval_power method should check `is_extended_negative` to properly handle both:
++1. Finite negative exponents: `0**(-1)`, `0**(-2)`, etc. → zoo ✓ (currently works)
++2. Infinite negative exponent: `0**(-oo)` → zoo ✗ (currently broken)
++
++## Summary Table
++
++| Property | Value | Explicitly Set? | Derived From |
++|----------|-------|----------------|--------------|
++| `is_negative` | `False` | No | `is_extended_negative & is_finite` |
++| `is_positive` | `False` | No | `is_extended_positive & is_finite` |
++| `is_extended_negative` | `True` | Yes (line 3011) | - |
++| `is_extended_positive` | `False` | No | Derived from assumptions |
++| `is_finite` | `False` | No | Opposite of `is_infinite` |
++| `is_infinite` | `True` | Yes (line 3009) | - |
++
++## The Fix Needed
++
++**File:** `sympy/core/numbers.py`  
++**Line:** 2628  
++**Change:**
++```python
++# FROM:
++if expt.is_negative:
++    return S.ComplexInfinity
++
++# TO:
++if expt.is_extended_negative:
++    return S.ComplexInfinity
++
++
++This single-word change will make `0**(-oo)` correctly return `zoo`.
+
+diff --git a/sympy/core/numbers.py b/sympy/core/numbers.py
+--- a/sympy/core/numbers.py
++++ b/sympy/core/numbers.py
+@@ -2621,13 +2621,13 @@
+     @staticmethod
+     def __neg__():
+         return S.Zero
+ 
+     def _eval_power(self, expt):
+-        if expt.is_positive:
++        if expt.is_extended_positive:
+             return self
+-        if expt.is_negative:
++        if expt.is_extended_negative:
+             return S.ComplexInfinity
+         if expt.is_extended_real is False:
+             return S.NaN
+         # infinities are already handled with pos and neg
+         # tests above; now throw away leading numbers on Mul

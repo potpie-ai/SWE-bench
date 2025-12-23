@@ -1,0 +1,19 @@
+diff --git a/django/db/backends/sqlite3/features.py b/django/db/backends/sqlite3/features.py
+--- a/django/db/backends/sqlite3/features.py
++++ b/django/db/backends/sqlite3/features.py
+@@ -8,7 +8,6 @@
+     # that statements within a connection aren't isolated from each other. See
+     # https://sqlite.org/isolation.html.
+     can_use_chunked_reads = True
+-    test_db_allows_multiple_connections = False
+     supports_unspecified_pk = True
+     supports_timezones = False
+     max_query_params = 999
+@@ -45,3 +44,7 @@
+     supports_frame_range_fixed_distance = Database.sqlite_version_info >= (3, 28, 0)
+     supports_aggregate_filter_clause = Database.sqlite_version_info >= (3, 30, 1)
+     supports_order_by_nulls_modifier = Database.sqlite_version_info >= (3, 30, 0)
++
++    @property
++    def test_db_allows_multiple_connections(self):
++        return not self.connection.is_in_memory_db()

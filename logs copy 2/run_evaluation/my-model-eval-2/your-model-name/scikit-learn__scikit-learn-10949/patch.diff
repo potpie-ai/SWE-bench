@@ -1,0 +1,15 @@
+diff --git a/sklearn/utils/validation.py b/sklearn/utils/validation.py
+--- a/sklearn/utils/validation.py
++++ b/sklearn/utils/validation.py
+@@ -466,6 +466,11 @@
+         # not a data type (e.g. a column named dtype in a pandas DataFrame)
+         dtype_orig = None
+ 
++    # dtype_orig could be None for objects without dtype attribute (e.g.,
++    # pandas DataFrame). In that case, get the dtype from conversion.
++    if dtype_orig is None and hasattr(array, '__array__'):
++        dtype_orig = np.asarray(array).dtype
++
+     if dtype_numeric:
+         if dtype_orig is not None and dtype_orig.kind == "O":
+             # if input is object, convert to float.

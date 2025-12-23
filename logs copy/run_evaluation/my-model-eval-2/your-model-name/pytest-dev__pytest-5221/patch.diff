@@ -1,0 +1,15 @@
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -1343,9 +1343,9 @@
+         if verbose <= 0 and argname[0] == "_":
+             continue
+         if verbose > 0:
+-            funcargspec = "%s -- %s" % (argname, bestrel)
++            funcargspec = "%s -- %s [%s]" % (argname, bestrel, fixturedef.scope)
+         else:
+-            funcargspec = argname
++            funcargspec = "%s [%s]" % (argname, fixturedef.scope)
+         tw.line(funcargspec, green=True)
+         loc = getlocation(fixturedef.func, curdir)
+         doc = fixturedef.func.__doc__ or ""

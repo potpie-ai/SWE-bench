@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12915",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "4652f1f0aa459a7b980441d629648707c32e36bf",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "46:53",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/contrib/staticfiles/handlers.py b/django/contrib/staticfiles/handlers.py\n--- a/django/contrib/staticfiles/handlers.py\n+++ b/django/contrib/staticfiles/handlers.py\n@@ -1,6 +1,8 @@\n from urllib.parse import urlparse\n from urllib.request import url2pathname\n \n+from asgiref.sync import sync_to_async\n+\n from django.conf import settings\n from django.contrib.staticfiles import utils\n from django.contrib.staticfiles.views import serve\n@@ -52,6 +54,12 @@ def get_response(self, request):\n         except Http404 as e:\n             return response_for_exception(request, e)\n \n+    async def get_response_async(self, request):\n+        try:\n+            return await sync_to_async(self.serve)(request)\n+        except Http404 as e:\n+            return await sync_to_async(response_for_exception)(request, e)\n+\n \n class StaticFilesHandler(StaticFilesHandlerMixin, WSGIHandler):\n     \"\"\"\n",
+  "hint": ""
+}

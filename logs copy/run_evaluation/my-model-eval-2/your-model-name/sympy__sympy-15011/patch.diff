@@ -1,0 +1,18 @@
+diff --git a/sympy/utilities/lambdify.py b/sympy/utilities/lambdify.py
+--- a/sympy/utilities/lambdify.py
++++ b/sympy/utilities/lambdify.py
+@@ -739,7 +739,14 @@
+                 argstrs.append(self._argrepr(dummy))
+                 expr = self._subexpr(expr, {arg: dummy})
+             else:
+-                argstrs.append(str(arg))
++                argstr = str(arg)
++                if dummify or not self._is_safe_ident(argstr):
++                    dummy = Dummy()
++                    argstrs.append(self._argrepr(dummy))
++                    expr = self._subexpr(expr, {arg: dummy})
++                else:
++                    argstrs.append(argstr)
++
+ 
+         return argstrs, expr

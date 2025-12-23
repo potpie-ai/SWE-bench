@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-8721",
+  "model_patch": "",
+  "repo": "sphinx-doc/sphinx",
+  "commit_id": "82ef497a8c88f0f6e50d84520e7276bfbf65025d",
+  "reasoning": "I'll help you diagnose and fix this issue with the viewcode extension creating pages for epub even when `viewcode_enable_epub=False`. Let me start by understanding the problem and exploring the codebase systematically.Now let me start by exploring the repository structure and locating the viewcode extension.I'll systematically analyze and fix this bug. Let me start by understanding the problem and exploring the codebase.\n\n## \ud83d\udcca Progress Summary - Initial Understanding\n\n**Current Status:** Beginning investigation of viewcode epub bug\n\n**Problem Summary:**\n- Bug: `sphinx.ext.viewcode` creates module pages for epub output even when `viewcode_enable_epub=False`\n- Context: Occurs when running `make html epub` (building both formats)\n- Expected: Module pages should NOT be created for epub when the setting is False\n\n**Next Steps:**\n1. Locate viewcode extension code\n2. Understand how `viewcode_enable_epub` works\n3. Find where the bug occurs in the build process\n4. Identify root cause\n5. Design and validate fix\n\nLet me start by exploring the viewcode extension:",
+  "conversation_id": "019b28f0-587c-7a9b-a953-81e05a863dad",
+  "time_taken": "00:56",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sphinx/ext/viewcode.py b/sphinx/ext/viewcode.py\n--- a/sphinx/ext/viewcode.py\n+++ b/sphinx/ext/viewcode.py\n@@ -182,6 +182,10 @@ def collect_pages(app: Sphinx) -> Generator[Tuple[str, Dict[str, Any], str], Non\n     env = app.builder.env\n     if not hasattr(env, '_viewcode_modules'):\n         return\n+    if app.builder.name == \"singlehtml\":\n+        return\n+    if app.builder.name.startswith(\"epub\") and not env.config.viewcode_enable_epub:\n+        return\n     highlighter = app.builder.highlighter  # type: ignore\n     urito = app.builder.get_relative_uri\n \n",
+  "hint": ""
+}

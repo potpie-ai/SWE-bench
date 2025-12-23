@@ -1,0 +1,226 @@
+[
+  {
+    "instance_id": "django__django-16400",
+    "repo_name": "django/django",
+    "commit_id": "0bd2c0c9015b53c41394a1c0989afbfd94dc2830",
+    "status": "ready",
+    "elapsed_seconds": 0.28,
+    "error": null
+  },
+  {
+    "instance_id": "matplotlib__matplotlib-25079",
+    "repo_name": "matplotlib/matplotlib",
+    "commit_id": "66f7956984cbfc3647e867c6e5fde889a89c64ef",
+    "status": "ready",
+    "elapsed_seconds": 0.04,
+    "error": null
+  },
+  {
+    "instance_id": "matplotlib__matplotlib-25498",
+    "repo_name": "matplotlib/matplotlib",
+    "commit_id": "78bf53caacbb5ce0dc7aa73f07a74c99f1ed919b",
+    "status": "ready",
+    "elapsed_seconds": 0.03,
+    "error": null
+  },
+  {
+    "instance_id": "pydata__xarray-3364",
+    "repo_name": "pydata/xarray",
+    "commit_id": "863e49066ca4d61c9adfe62aca3bf21b90e1af8c",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5103",
+    "repo_name": "pytest-dev/pytest",
+    "commit_id": "10ca84ffc56c2dd2d9dc4bd71b7b898e083500cd",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sphinx-doc__sphinx-8474",
+    "repo_name": "sphinx-doc/sphinx",
+    "commit_id": "3ea1ec84cc610f7a9f4f6b354e264565254923ff",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sphinx-doc__sphinx-8506",
+    "repo_name": "sphinx-doc/sphinx",
+    "commit_id": "e4bd3bd3ddd42c6642ff779a4f7381f219655c2c",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sphinx-doc__sphinx-8595",
+    "repo_name": "sphinx-doc/sphinx",
+    "commit_id": "b19bce971e82f2497d67fdacdeca8db08ae0ba56",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sphinx-doc__sphinx-8627",
+    "repo_name": "sphinx-doc/sphinx",
+    "commit_id": "332d80ba8433aea41c3709fa52737ede4405072b",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-11400",
+    "repo_name": "sympy/sympy",
+    "commit_id": "8dcb12a6cf500e8738d6729ab954a261758f49ca",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-11870",
+    "repo_name": "sympy/sympy",
+    "commit_id": "5c2e1f96a7ff562d4a778f4ca9ffc9c81557197e",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-11897",
+    "repo_name": "sympy/sympy",
+    "commit_id": "e2918c1205c47345eb73c9be68b14c0f15fdeb17",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-12171",
+    "repo_name": "sympy/sympy",
+    "commit_id": "ca6ef27272be31c9dc3753ede9232c39df9a75d8",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-12236",
+    "repo_name": "sympy/sympy",
+    "commit_id": "d60497958f6dea7f5e25bc41e9107a6a63694d01",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-12419",
+    "repo_name": "sympy/sympy",
+    "commit_id": "479939f8c65c8c2908bbedc959549a257a7c0b0b",
+    "status": "ready",
+    "elapsed_seconds": 0.03,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-12454",
+    "repo_name": "sympy/sympy",
+    "commit_id": "d3fcdb72bfcbb560eb45264ac1c03f359436edef",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-13031",
+    "repo_name": "sympy/sympy",
+    "commit_id": "2dfa7457f20ee187fbb09b5b6a1631da4458388c",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-13043",
+    "repo_name": "sympy/sympy",
+    "commit_id": "a3389a25ec84d36f5cf04a4f2562d820f131db64",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-13146",
+    "repo_name": "sympy/sympy",
+    "commit_id": "b678d8103e48fdb1af335dbf0080b3d5366f2d17",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-15346",
+    "repo_name": "sympy/sympy",
+    "commit_id": "9ef28fba5b4d6d0168237c9c005a550e6dc27d81",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-17630",
+    "repo_name": "sympy/sympy",
+    "commit_id": "58e78209c8577b9890e957b624466e5beed7eb08",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-18087",
+    "repo_name": "sympy/sympy",
+    "commit_id": "9da013ad0ddc3cd96fe505f2e47c63e372040916",
+    "status": "ready",
+    "elapsed_seconds": 0.03,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-18835",
+    "repo_name": "sympy/sympy",
+    "commit_id": "516fa83e69caf1e68306cfc912a13f36c434d51c",
+    "status": "ready",
+    "elapsed_seconds": 0.02,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-20322",
+    "repo_name": "sympy/sympy",
+    "commit_id": "ab864967e71c950a15771bb6c3723636026ba876",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-21379",
+    "repo_name": "sympy/sympy",
+    "commit_id": "624217179aaf8d094e6ff75b7493ad1ee47599b0",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-24066",
+    "repo_name": "sympy/sympy",
+    "commit_id": "514579c655bf22e2af14f0743376ae1d7befe345",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-24102",
+    "repo_name": "sympy/sympy",
+    "commit_id": "58598660a3f6ab3d918781c4988c2e4b2bdd9297",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  },
+  {
+    "instance_id": "sympy__sympy-24909",
+    "repo_name": "sympy/sympy",
+    "commit_id": "d3b4158dea271485e3daa11bf82e69b8dab348ce",
+    "status": "ready",
+    "elapsed_seconds": 0.01,
+    "error": null
+  }
+]

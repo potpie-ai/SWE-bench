@@ -1,0 +1,28 @@
+diff --git a/sympy/integrals/intpoly.py b/sympy/integrals/intpoly.py
+--- a/sympy/integrals/intpoly.py
++++ b/sympy/integrals/intpoly.py
+@@ -567,10 +567,11 @@
+         elif expr.is_Add:
+             symbols = expr.atoms(Symbol)
+             degrees = [(sum(degree_list(monom, *symbols)), monom)
+                        for monom in expr.args]
+             if separate:
++                degrees.sort(key=lambda x: (x[0], x[1].sort_key()))
+                 return [monom[1] for monom in degrees]
+             else:
+                 for monom in degrees:
+                     degree, term = monom
+                     if poly_dict.get(degree):
+@@ -591,11 +592,11 @@
+             poly_dict[degree] = expr
+     else:
+         poly_dict[0] = expr
+ 
+     if separate:
+-        return list(poly_dict.values())
++        return [poly_dict[k] for k in sorted(poly_dict.keys())]
+     return poly_dict
+ 
+ 
+ def clockwise_sort(poly):
+     """Returns the same polygon with points sorted in clockwise order.

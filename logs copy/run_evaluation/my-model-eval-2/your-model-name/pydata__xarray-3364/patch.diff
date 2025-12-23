@@ -1,0 +1,480 @@
+diff --git a/DESIGN_CONCAT_JOIN_VARIABLES.md b/DESIGN_CONCAT_JOIN_VARIABLES.md
+--- a/DESIGN_CONCAT_JOIN_VARIABLES.md
++++ b/DESIGN_CONCAT_JOIN_VARIABLES.md
+@@ -0,0 +1,312 @@
++# Design: Extend join parameter to handle missing variables in concat()
++
++## Problem Statement
++Currently, `xarray.concat()` raises an error when variables are missing from some datasets. The `join` parameter only applies to indexes (coordinates), not to variables. We need to extend it to handle missing variables, similar to how `pandas.concat()` works.
++
++## Solution: Extend existing `join` parameter
++
++### Rationale
++1. **Consistency with pandas**: pandas.concat() uses `join` for both indexes and columns
++2. **Semantic consistency**: join types have clear meanings for both indexes and variables
++3. **Minimal API change**: No new parameter needed
++4. **User expectation**: Users familiar with pandas will expect this behavior
++
++### Join Type Semantics for Variables
++
++| Join Type | Variables Behavior | Indexes Behavior (current) |
++|-----------|-------------------|---------------------------|
++| `'outer'` (default) | Union of all variables, fill missing with NaN/fill_value | Union of object indexes |
++| `'inner'` | Intersection of variables present in all datasets | Intersection of object indexes |
++| `'left'` | Use variables from first dataset only | Use indexes from first object |
++| `'right'` | Use variables from last dataset only | Use indexes from last object |
++| `'exact'` | Raise error if variables differ (current behavior) | Raise error when indexes not equal |
++| `'override'` | Same as 'left' for variables | Rewrite indexes to first object |
++
++## Implementation Plan
++
++### 1. Helper Function: Create Filled Variable
++
++Add a helper function to create a variable filled with `fill_value`:
++
++```python
++def _create_filled_variable(ref_var, concat_dim, concat_dim_len, fill_value, dims_sizes):
++    """
++    Create a variable filled with fill_value, matching ref_var's structure.
++    
++    Parameters
++    ----------
++    ref_var : Variable
++        Reference variable to match structure (dims, dtype, attrs)
++    concat_dim : str
++        Name of the concatenation dimension
++    concat_dim_len : int
++        Length of concat dimension for this dataset
++    fill_value : scalar
++        Value to fill the array with (dtypes.NA means NaN for float, 0 for int)
++    dims_sizes : dict
++        Dictionary mapping dimension names to sizes
++        
++    Returns
++    -------
++    Variable
++        A new variable with same structure as ref_var but filled with fill_value
++    """
++    import numpy as np
++    
++    # Determine dimensions
++    if concat_dim in ref_var.dims:
++        dims = ref_var.dims
++        # Build shape using dims_sizes, but override concat_dim
++        shape = tuple(
++            concat_dim_len if d == concat_dim else dims_sizes[d] 
++            for d in dims
++        )
++    else:
++        # Concat dim not in variable dims, prepend it
++        dims = (concat_dim,) + ref_var.dims
++        shape = tuple(
++            concat_dim_len if d == concat_dim else dims_sizes[d]
++            for d in dims
++        )
++    
++    # Determine fill value and dtype
++    if fill_value is dtypes.NA:
++        # Use NaN for float, convert integers to float to support NaN
++        if np.issubdtype(ref_var.dtype, np.integer):
++            dtype = np.float64
++            fill = np.nan
++        elif np.issubdtype(ref_var.dtype, np.floating):
++            dtype = ref_var.dtype
++            fill = np.nan
++        else:
++            # For other types (bool, object, etc.), use NaN as float
++            dtype = np.float64
++            fill = np.nan
++    else:
++        dtype = ref_var.dtype
++        fill = fill_value
++    
++    # Create filled array
++    data = np.full(shape, fill, dtype=dtype)
++    
++    # Return variable with same attrs as reference
++    return Variable(dims, data, ref_var.attrs.copy())
++
++
++### 2. Modify variables_to_merge section (lines 308-328)
++
++**Goal**: Filter which non-concat-dim variables to include based on join type.
++
++```python
++# determine which variables to merge, and then merge them according to compat
++# Start with union of all variables
++variables_to_merge = (coord_names | data_names) - concat_over - dim_names
++
++# Apply join logic to filter variables
++if join == 'inner':
++    # Only keep variables present in ALL datasets
++    for ds in datasets:
++        variables_to_merge &= set(ds.variables)
++elif join in ('left', 'override'):
++    # Only keep variables from first dataset
++    variables_to_merge &= set(datasets[0].variables)
++elif join == 'right':
++    # Only keep variables from last dataset
++    variables_to_merge &= set(datasets[-1].variables)
++elif join == 'exact':
++    # Raise error if any dataset is missing variables
++    for ds in datasets:
++        absent_merge_vars = variables_to_merge - set(ds.variables)
++        if absent_merge_vars:
++            raise ValueError(
++                "variables %r are present in some datasets but not others. "
++                % absent_merge_vars
++            )
++# else: join == 'outer' - keep all variables (union, already have it)
++
++result_vars = {}
++if variables_to_merge:
++    to_merge = {var: [] for var in variables_to_merge}
++    
++    for ds in datasets:
++        for var in variables_to_merge:
++            if var in ds.variables:
++                to_merge[var].append(ds.variables[var])
++    
++    for var in variables_to_merge:
++        result_vars[var] = unique_variable(
++            var, to_merge[var], compat=compat, equals=equals.get(var, None)
++        )
++else:
++    result_vars = {}
++result_vars.update(dim_coords)
++
++
++**Key changes:**
++- Added join-based filtering before the merge loop
++- Removed the error raising from inside the loop (moved to 'exact' case)
++- Only append variables that exist in each dataset
++
++### 3. Modify concat_over section (lines 359-367)
++
++**Goal**: Handle missing concat-dim variables and fill with fill_value for outer join.
++
++```python
++# Determine which concat_over variables to include based on join
++if join == 'inner':
++    # Only variables present in ALL datasets
++    concat_over_vars = set(concat_over)
++    for ds in datasets:
++        concat_over_vars &= set(ds.variables)
++    concat_over_vars = sorted(concat_over_vars)  # Make deterministic
++elif join in ('left', 'override'):
++    # Only variables from first dataset
++    concat_over_vars = sorted(set(concat_over) & set(datasets[0].variables))
++elif join == 'right':
++    # Only variables from last dataset  
++    concat_over_vars = sorted(set(concat_over) & set(datasets[-1].variables))
++elif join == 'exact':
++    # Will check and raise error for missing variables below
++    concat_over_vars = sorted(set(concat_over))
++else:  # 'outer'
++    # All variables from any dataset
++    concat_over_vars = sorted(set(concat_over))
++
++# stack up each variable to fill-out the dataset (in order)
++# n.b. this loop preserves variable order, needed for groupby.
++for k in concat_over_vars:
++    # Collect variable from each dataset, creating filled variable if missing
++    vars_to_concat = []
++    for ds, dim_len in zip(datasets, concat_dim_lengths):
++        if k in ds.variables:
++            vars_to_concat.append(ds.variables[k])
++        elif join == 'outer':
++            # Find a reference variable from another dataset
++            ref_var = None
++            for other_ds in datasets:
++                if k in other_ds.variables:
++                    ref_var = other_ds.variables[k]
++                    break
++            if ref_var is None:
++                # This shouldn't happen if concat_over was computed correctly
++                raise ValueError(f"Variable {k} not found in any dataset")
++            
++            # Create filled variable for this dataset
++            filled_var = _create_filled_variable(
++                ref_var, dim, dim_len, fill_value, dims_sizes
++            )
++            vars_to_concat.append(filled_var)
++        elif join == 'exact':
++            raise ValueError("%r is not present in all datasets." % k)
++        # For 'inner', 'left', 'right': variable should exist (filtered above)
++    
++    # Ensure common dims and concatenate
++    vars = ensure_common_dims(vars_to_concat)
++    combined = concat_vars(vars, dim, positions)
++    assert isinstance(combined, Variable)
++    result_vars[k] = combined
++
++
++**Key changes:**
++- Added join-based filtering to determine which concat_over variables to include
++- For outer join, create filled variables when variable is missing from a dataset
++- For exact join, raise error when variable is missing
++- For inner/left/right, variables are already filtered so they should exist
++
++### 4. Update Documentation
++
++Update the docstring for the `join` parameter (lines 80-92):
++
++```python
++    join : {'outer', 'inner', 'left', 'right', 'exact'}, optional
++        String indicating how to combine differing indexes and variables
++        in objects
++        
++        - 'outer': use the union of object indexes and variables (fill missing with fill_value)
++        - 'inner': use the intersection of object indexes and variables
++        - 'left': use indexes and variables from the first object
++        - 'right': use indexes and variables from the last object
++        - 'exact': instead of aligning, raise `ValueError` when indexes or variables
++          to be aligned are not equal
++        - 'override': if indexes are of same size, rewrite indexes to be
++          those of the first object with that dimension. For variables, same as 'left'.
++          Indexes for the same dimension must have the same size in all objects.
++
++
++## Edge Cases Handled
++
++1. **Variable in some datasets but not others**:
++   - outer: Fill with NaN/fill_value ✓
++   - inner: Exclude from result ✓
++   - left/right: Include only if in reference dataset ✓
++   - exact: Raise error ✓
++
++2. **Variable has concat_dim in some datasets but not others**:
++   - The `_calc_concat_over` function already handles this - it includes a variable in concat_over if it has the concat dim in ANY dataset
++   - Our code will then create a filled variable if it's missing
++
++3. **Empty intersection with inner join**:
++   - Result will have no variables except dimensions
++   - This is valid ✓
++
++4. **Integer variables with NaN**:
++   - When fill_value is NA, convert integer variables to float64 to support NaN
++   - This matches pandas behavior ✓
++
++5. **Interaction with data_vars and coords parameters**:
++   - These parameters filter which variables are considered for concat_over
++   - The join parameter then determines how to handle missing variables among those selected
++   - Order of operations: data_vars/coords filter → concat_over determination → join logic
++
++## Testing Strategy
++
++### Test cases needed:
++
++1. **variables_to_merge with different join types**:
++   - Test outer, inner, left, right, exact with missing non-concat-dim variables
++
++2. **concat_over with different join types**:
++   - Test outer, inner, left, right, exact with missing concat-dim variables
++   - Test fill_value parameter works correctly
++
++3. **Edge cases**:
++   - Empty intersection (inner join with no common variables)
++   - All variables missing from some dataset
++   - Integer variables with NaN fill
++   - Mixed data types
++
++4. **Interaction with existing parameters**:
++   - data_vars='all', 'minimal', 'different' with different join types
++   - coords='all', 'minimal', 'different' with different join types
++   - Different compat values
++
++5. **Backward compatibility**:
++   - Verify join='exact' maintains current behavior (raises error)
++   - Verify existing tests still pass
++
++## Backward Compatibility
++
++- **Default behavior changes**: `join='outer'` will now fill missing variables with NaN instead of raising an error
++  - This is more permissive, so existing code that works will continue to work
++  - Code that was failing with missing variable errors will now succeed
++  - This matches user expectations from pandas
++
++- **join='exact' preserves old behavior**: Raises error for missing variables
++  - Users who want the strict old behavior can use join='exact'
++
++- **Risk assessment**: LOW
++  - Change is additive (more permissive)
++  - Matches pandas behavior (user expectation)
++  - Provides explicit control via join parameter
++
++## Summary
++
++This design extends the `join` parameter to apply to both indexes and variables, making xarray.concat() more consistent with pandas.concat(). The implementation:
++
++1. Adds a helper function to create filled variables
++2. Modifies variables_to_merge filtering based on join type
++3. Modifies concat_over to handle missing variables and create filled variables for outer join
++4. Updates documentation to reflect the extended behavior
++5. Maintains backward compatibility via join='exact'
++
++The changes are minimal, focused, and consistent with the existing codebase patterns.
+
+diff --git a/xarray/core/concat.py b/xarray/core/concat.py
+--- a/xarray/core/concat.py
++++ b/xarray/core/concat.py
+@@ -1,5 +1,6 @@
++import numpy as np
+ import pandas as pd
+ 
+ from . import dtypes, utils
+ from .alignment import align
+ from .merge import _VALID_COMPAT, unique_variable
+@@ -307,27 +308,57 @@
+     # determine which variables to merge, and then merge them according to compat
+     variables_to_merge = (coord_names | data_names) - concat_over - dim_names
+ 
+     result_vars = {}
+     if variables_to_merge:
+-        to_merge = {var: [] for var in variables_to_merge}
+-
+-        for ds in datasets:
+-            absent_merge_vars = variables_to_merge - set(ds.variables)
+-            if absent_merge_vars:
+-                raise ValueError(
+-                    "variables %r are present in some datasets but not others. "
+-                    % absent_merge_vars
++        # Apply join parameter to variables as well as indexes
++        if join == "outer":
++            # Include all variables, even if some are missing
++            to_merge = {var: [] for var in variables_to_merge}
++            for ds in datasets:
++                for var in variables_to_merge:
++                    if var in ds.variables:
++                        to_merge[var].append(ds.variables[var])
++        elif join == "inner":
++            # Only include variables present in all datasets
++            variables_to_merge = set.intersection(
++                *[set(ds.variables) for ds in datasets]
++            ) & variables_to_merge
++            if variables_to_merge:
++                to_merge = {var: [] for var in variables_to_merge}
++                for ds in datasets:
++                    for var in variables_to_merge:
++                        to_merge[var].append(ds.variables[var])
++            else:
++                to_merge = {}
++        elif join in ["left", "right"]:
++            # Use variables from the first (left) or last (right) dataset
++            ref_ds = datasets[0] if join == "left" else datasets[-1]
++            variables_to_merge = set(ref_ds.variables) & variables_to_merge
++            to_merge = {var: [] for var in variables_to_merge}
++            for ds in datasets:
++                for var in variables_to_merge:
++                    if var in ds.variables:
++                        to_merge[var].append(ds.variables[var])
++        else:  # join == "exact" or "override"
++            # Original behavior: all variables must be present
++            to_merge = {var: [] for var in variables_to_merge}
++            for ds in datasets:
++                absent_merge_vars = variables_to_merge - set(ds.variables)
++                if absent_merge_vars:
++                    raise ValueError(
++                        "variables %r are present in some datasets but not others. "
++                        % absent_merge_vars
++                    )
++                for var in variables_to_merge:
++                    to_merge[var].append(ds.variables[var])
++
++        for var in to_merge:
++            if to_merge[var]:
++                result_vars[var] = unique_variable(
++                    var, to_merge[var], compat=compat, equals=equals.get(var, None)
+                 )
+-
+-            for var in variables_to_merge:
+-                to_merge[var].append(ds.variables[var])
+-
+-        for var in variables_to_merge:
+-            result_vars[var] = unique_variable(
+-                var, to_merge[var], compat=compat, equals=equals.get(var, None)
+-            )
+     else:
+         result_vars = {}
+     result_vars.update(dim_coords)
+ 
+     # assign attrs and encoding from first dataset
+@@ -354,17 +385,72 @@
+                 var = var.set_dims(common_dims, common_shape)
+             yield var
+ 
+     # stack up each variable to fill-out the dataset (in order)
+     # n.b. this loop preserves variable order, needed for groupby.
+-    for k in datasets[0].variables:
+-        if k in concat_over:
+-            try:
+-                vars = ensure_common_dims([ds.variables[k] for ds in datasets])
+-            except KeyError:
++    
++    # Determine which variables to process based on join parameter
++    if join == "inner":
++        # Only process variables present in all datasets
++        concat_over_vars = set.intersection(
++            *[set(ds.variables) for ds in datasets]
++        ) & concat_over
++    elif join in ["left", "right"]:
++        # Use variables from the reference dataset
++        ref_ds = datasets[0] if join == "left" else datasets[-1]
++        concat_over_vars = set(ref_ds.variables) & concat_over
++    else:
++        # outer, exact, override: process all concat_over variables
++        concat_over_vars = concat_over
++    
++    # Iterate over all variables to concatenate
++    for k in concat_over_vars:
++        # Check which datasets have this variable
++        vars_list = []
++        for ds, dim_len in zip(datasets, concat_dim_lengths):
++            if k in ds.variables:
++                vars_list.append(ds.variables[k])
++            elif join == "outer":
++                # For outer join, create a fill variable for missing data
++                # Get a reference variable to determine shape and dtype
++                ref_var = None
++                for other_ds in datasets:
++                    if k in other_ds.variables:
++                        ref_var = other_ds.variables[k]
++                        break
++                
++                if ref_var is not None:
++                    # Create dimensions for the fill variable
++                    # Use dims from reference variable, with concat dim having length dim_len
++                    fill_dims = ref_var.dims
++                    fill_shape = list(ref_var.shape)
++                    if dim in ref_var.dims:
++                        concat_dim_idx = ref_var.dims.index(dim)
++                        fill_shape[concat_dim_idx] = dim_len
++                    else:
++                        # Add concat dimension at the beginning
++                        fill_dims = (dim,) + fill_dims
++                        fill_shape = [dim_len] + fill_shape
++                    
++                    # Create array filled with fill_value, promoting dtype if necessary
++                    if fill_value is dtypes.NA:
++                        dtype, fill_value = dtypes.maybe_promote(ref_var.dtype)
++                    else:
++                        dtype = ref_var.dtype
++                    
++                    fill_data = np.full(fill_shape, fill_value, dtype=dtype)
++                    
++                    fill_var = Variable(fill_dims, fill_data, ref_var.attrs)
++                    vars_list.append(fill_var)
++            elif join == "exact":
++                # For exact join, raise error for missing variables
+                 raise ValueError("%r is not present in all datasets." % k)
+-            combined = concat_vars(vars, dim, positions)
++            # For inner/left/right joins, missing variables are already filtered out
++        
++        if vars_list:
++            vars_with_common_dims = ensure_common_dims(vars_list)
++            combined = concat_vars(vars_with_common_dims, dim, positions)
+             assert isinstance(combined, Variable)
+             result_vars[k] = combined
+ 
+     result = Dataset(result_vars, attrs=result_attrs)
+     absent_coord_names = coord_names - set(result.variables)

@@ -1,0 +1,185 @@
+diff --git a/test_keyfunc.py b/test_keyfunc.py
+--- a/test_keyfunc.py
++++ b/test_keyfunc.py
+@@ -0,0 +1,151 @@
++#!/usr/bin/env python3
++"""Test script to analyze the keyfunc sorting behavior."""
++
++import unicodedata
++
++# Test various Unicode characters and their positions
++test_chars = [
++    ('@', 'U+0040', 64),
++    ('_', 'U+005F', 95),
++    (chr(127), 'U+007F', 127),
++    ('£', 'U+00A3', 163),
++    ('←', 'U+2190', 8592),
++    ('a', 'U+0061', 97),
++    ('A', 'U+0041', 65),
++]
++
++print('Character ordering:')
++print('-' * 50)
++for char, code, val in test_chars:
++    print(f'{char:5} {code:10} decimal: {val:5}')
++
++print('\n\nCURRENT IMPLEMENTATION:')
++print('=' * 50)
++
++entries = [
++    ('@index', []),
++    ('_private', []),
++    ('£symbol', []),
++    ('←arrow', []),
++    ('alpha', []),
++    ('Beta', []),
++]
++
++def keyfunc_current(entry):
++    key = entry[0]
++    lckey = unicodedata.normalize('NFD', key.lower())
++    if lckey[0:1].isalpha() or lckey.startswith('_'):
++        lckey = chr(127) + lckey
++    return lckey
++
++sorted_entries = sorted(entries, key=keyfunc_current)
++print('\nSorted order:')
++for i, entry in enumerate(sorted_entries):
++    key_result = keyfunc_current(entry)
++    first_char_code = ord(key_result[0])
++    print(f'{i+1}. {entry[0]:15} -> sort key: {repr(key_result[:5]):20} (starts with U+{first_char_code:04X})')
++
++print('\n\nPROBLEM ANALYSIS:')
++print('-' * 50)
++print('@ (U+0040, decimal 64) comes BEFORE chr(127) (U+007F, decimal 127)')
++print('£ (U+00A3, decimal 163) comes AFTER chr(127) (U+007F, decimal 127)')
++print('Result: Symbols are split into two groups!')
++
++print('\n\nSOLUTION 1: Use higher Unicode value')
++print('=' * 50)
++
++def keyfunc_solution1(entry):
++    key = entry[0]
++    lckey = unicodedata.normalize('NFD', key.lower())
++    if lckey.startswith('\N{RIGHT-TO-LEFT MARK}'):
++        lckey = lckey[1:]
++    if lckey[0:1].isalpha() or lckey.startswith('_'):
++        # Use a high Unicode value that's greater than all common symbols
++        # U+10FFFF is the maximum Unicode code point
++        lckey = chr(0x10FFFF) + lckey
++    return lckey
++
++sorted_entries = sorted(entries, key=keyfunc_solution1)
++print('\nSorted order with Solution 1 (chr(0x10FFFF)):')
++for i, entry in enumerate(sorted_entries):
++    key_result = keyfunc_solution1(entry)
++    first_char_code = ord(key_result[0])
++    print(f'{i+1}. {entry[0]:15} -> sort key: {repr(key_result[:5]):20} (starts with U+{first_char_code:04X})')
++
++print('\n\nSOLUTION 2: Swap logic - prepend low value to symbols')
++print('=' * 50)
++
++def keyfunc_solution2(entry):
++    key = entry[0]
++    lckey = unicodedata.normalize('NFD', key.lower())
++    if lckey.startswith('\N{RIGHT-TO-LEFT MARK}'):
++        lckey = lckey[1:]
++    # Reverse the logic: prepend a low value to symbols instead
++    if not (lckey[0:1].isalpha() or lckey.startswith('_')):
++        lckey = chr(0) + lckey
++    return lckey
++
++sorted_entries = sorted(entries, key=keyfunc_solution2)
++print('\nSorted order with Solution 2 (chr(0) for symbols):')
++for i, entry in enumerate(sorted_entries):
++    key_result = keyfunc_solution2(entry)
++    first_char_code = ord(key_result[0]) if key_result else 0
++    print(f'{i+1}. {entry[0]:15} -> sort key: {repr(key_result[:5]):20} (starts with U+{first_char_code:04X})')
++
++print('\n\nSOLUTION 3: Two-part sort key (category, then value)')
++print('=' * 50)
++
++def keyfunc_solution3(entry):
++    key = entry[0]
++    lckey = unicodedata.normalize('NFD', key.lower())
++    if lckey.startswith('\N{RIGHT-TO-LEFT MARK}'):
++        lckey = lckey[1:]
++    # Use a tuple: (category, key)
++    # category: 0 for symbols, 1 for alphabetic
++    if lckey[0:1].isalpha() or lckey.startswith('_'):
++        return (1, lckey)  # alphabetic - sort second
++    else:
++        return (0, lckey)  # symbols - sort first
++
++sorted_entries = sorted(entries, key=keyfunc_solution3)
++print('\nSorted order with Solution 3 (tuple-based):')
++for i, entry in enumerate(sorted_entries):
++    key_result = keyfunc_solution3(entry)
++    print(f'{i+1}. {entry[0]:15} -> sort key: {key_result}')
++
++print('\n\nEDGE CASE TESTING:')
++print('=' * 50)
++
++edge_cases = [
++    ('@index', [], None),
++    ('_private', [], None),
++    ('£symbol', [], None),
++    ('←arrow', [], None),
++    ('alpha', [], None),
++    ('Beta', [], None),
++    ('\N{RIGHT-TO-LEFT MARK}rtl_text', [], None),
++    ('custom', [], 'CUSTOM_CATEGORY'),
++]
++
++print('\nTesting with RTL mark and custom category_key:')
++for entry_tuple in edge_cases:
++    key, void_list, category_key = entry_tuple
++    if category_key:
++        test_key = category_key
++    else:
++        test_key = key
++    lckey = unicodedata.normalize('NFD', test_key.lower())
++    if lckey.startswith('\N{RIGHT-TO-LEFT MARK}'):
++        lckey = lckey[1:]
++        print(f'{key:30} -> RTL mark detected, stripped -> {repr(lckey[:10])}')
++    else:
++        print(f'{key:30} -> {repr(lckey[:10])}')
++
++print('\n\nRECOMMENDATION:')
++print('=' * 50)
++print('Solution 3 (tuple-based) is RECOMMENDED because:')
++print('1. Most explicit and readable')
++print('2. No magic Unicode values that could cause issues')
++print('3. Maintains compatibility with return type (though changes from Tuple[str, str] to Tuple[int, str], str)')
++print('4. Handles all edge cases naturally')
++print('5. More maintainable and self-documenting')
+
+diff --git a/sphinx/environment/adapters/indexentries.py b/sphinx/environment/adapters/indexentries.py
+--- a/sphinx/environment/adapters/indexentries.py
++++ b/sphinx/environment/adapters/indexentries.py
+@@ -107,11 +107,11 @@
+                 key = category_key
+             lckey = unicodedata.normalize('NFD', key.lower())
+             if lckey.startswith('\N{RIGHT-TO-LEFT MARK}'):
+                 lckey = lckey[1:]
+             if lckey[0:1].isalpha() or lckey.startswith('_'):
+-                lckey = chr(127) + lckey
++                lckey = chr(0x10FFFF) + lckey
+             # ensure a determinstic order *within* letters by also sorting on
+             # the entry itself
+             return (lckey, entry[0])
+         newlist = sorted(new.items(), key=keyfunc)
+ 
+@@ -149,11 +149,11 @@
+         def keyfunc2(entry: Tuple[str, List]) -> str:
+             key = unicodedata.normalize('NFD', entry[0].lower())
+             if key.startswith('\N{RIGHT-TO-LEFT MARK}'):
+                 key = key[1:]
+             if key[0:1].isalpha() or key.startswith('_'):
+-                key = chr(127) + key
++                return chr(0x10FFFF) + key
+             return key
+ 
+         # group the entries by letter
+         def keyfunc3(item: Tuple[str, List]) -> str:
+             # hack: mutating the subitems dicts to a list in the keyfunc

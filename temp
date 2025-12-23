@@ -1,0 +1,250 @@
+🤖 **Subagent Starting...**
+
+# Analyzing the urllib3 Exception Leaking Problem
+
+Let me systematically analyze this issue to understand the general pattern and find a complete solution.
+
+## Step 1: Examine the Current Exception Handling in adapters.py
+
+First, let me look at the full exception# Analyzing the urllib3 Exception Leaking Problem
+
+Let me systematically analyze this issue to understand the general pattern and find a complete solution.
+
+## Step 1: Examine the Current Exception Handling in adapters.py
+
+First, let me look at the full exception handling block in adapters.py:Now let me look at the imports to understand the naming conventions and what exceptions are being imported:Now let's look at the requests exceptions to understand the mapping:Now let me look at urllib3's exception hierarchy to understand all the exceptions that could leak:This is very revealing! Now let me check if there are other places in the requests codebase where urllib3 exceptions might leak:Let me also check models.py:Now let me search for where these urllib3 exceptions are used in models.py:Now let me look at how the exception handling is structured in adapters.py again with fresh eyes:## Step 2: Analyzing the REAL Problem
+
+Now I can see the systematic issue clearly. Let me trace through the logic:
+
+### The Problematic Pattern
+
+```python
+except (_SSLError, _HTTPError) as e:
+    if isinstance(e, _SSLError):
+        raise SSLError(e, request=request)
+    elif isinstance(e, ReadTimeoutError):
+        raise ReadTimeout(e, request=request)
+    else:
+        raise  # <-- THE BUG IS HERE
+```
+
+The problem is:
+
+1. `_HTTPError` is the **base class** for almost ALL urllib3 exceptions
+2. The handler catches `_HTTPError` but only handles `ReadTimeoutError` specifically
+3. Everything else (`DecodeError`, `TimeoutError`, `PoolError`, etc.) falls through to `raise`
+
+### What Exceptions Can Leak?
+
+Looking at urllib3's exception hierarchy (from exceptions.py):
+
+```
+HTTPError (base)  ← _HTTPError
+├── PoolError
+│   ├── RequestError
+│   │   ├── MaxRetryError (handled separately)
+│   │   └── HostChangedError
+│   ├── EmptyPoolError
+│   └── ClosedPoolError
+├── SSLError (handled)
+├── ProxyError (handled separately)
+├── DecodeError ← CAN LEAK
+├── ProtocolError (handled separately)
+├── TimeoutStateError ← CAN LEAK
+├── TimeoutError ← CAN LEAK (parent of ReadTimeoutError)
+│   ├── ReadTimeoutError (handled)
+│   └── ConnectTimeoutError (handled via MaxRetryError)
+├── LocationValueError ← CAN LEAK
+│   └── LocationParseError ← CAN LEAK
+├── ResponseError ← CAN LEAK
+└── ResponseNotChunked ← CAN LEAK
+```
+
+## Step 3: Understanding the Design Principle
+
+The **design principle** of the requests library is:
+
+> **Users should NEVER see urllib3 exceptions. They should only see `requests.exceptions.*`**
+
+The current code tries to map specific urllib3 exceptions to requests exceptions, but the `else: raise` is a **fundamental design flaw** because it allows ANY unhandled `_HTTPError` subclass to leak.
+
+## Step 4: What's the CORRECT Solution?
+
+The correct solution is **NOT** to add more specific handlers for each exception (that's playing whack-a-mole). The correct solution is to have a **catch-all** that wraps any unhandled `_HTTPError` in a requests exception.
+
+Let me look at what requests exception would be appropriate as a fallback:## Key Insight: `RequestException` is the base class
+
+The correct approach is:
+
+1. Keep specific mappings where they make semantic sense (SSL → SSLError, ReadTimeout → ReadTimeout, etc.)
+2. **Add a final else clause that wraps any unknown `_HTTPError` in `RequestException`** (the base class)
+
+This way:
+
+- Known exceptions get properly mapped
+- **Unknown/future exceptions are still wrapped** and don't leak urllib3 types
+- Users always catch `requests.exceptions.RequestException` or subclasses
+
+## Step 5: Identifying All Problem Areas
+
+Let me verify if there are other places where exceptions could leak:There are two bare `raise` statements. Let me look at line 410:The `raise` on line 410 is inside a cleanup block and re-raises to be caught by the outer exception handlers. That's fine - it's designed to let the outer handlers process the exception.
+
+The problematic one is line 433 which is the "else: raise" in the `(_SSLError, _HTTPError)` catch block.
+
+## Summary: The Complete Solution
+
+### The General Pattern / Design Principle:
+
+**Every urllib3 exception that can escape must be wrapped in a requests exception.** The code should NEVER have a bare `raise` that lets urllib3 exceptions through.
+
+### The Fix:
+
+Change this:
+
+```python
+except (_SSLError, _HTTPError) as e:
+    if isinstance(e, _SSLError):
+        raise SSLError(e, request=request)
+    elif isinstance(e, ReadTimeoutError):
+        raise ReadTimeout(e, request=request)
+    else:
+        raise  # <-- BUG: urllib3 exceptions leak here!
+```
+
+To this:
+
+```python
+except (_SSLError, _HTTPError) as e:
+    if isinstance(e, _SSLError):
+        raise SSLError(e, request=request)
+    elif isinstance(e, ReadTimeoutError):
+        raise ReadTimeout(e, request=request)
+    else:
+        raise RequestException(e, request=request)  # Wrap unknown exceptions
+```
+
+This is a **complete solution** because:
+
+1. It handles ALL current urllib3 HTTPError subclasses
+2. It handles ALL FUTURE urllib3 HTTPError subclasses (forward-compatible)
+3. Users always get `requests.exceptions.*` types
+4. The original exception is preserved as the argument (for debugging)
+
+### Alternative Consideration: More Specific Mappings
+
+You could also add more specific mappings before the catch-all:
+
+```python
+except (_SSLError, _HTTPError) as e:
+    if isinstance(e, _SSLError):
+        raise SSLError(e, request=request)
+    elif isinstance(e, ReadTimeoutError):
+        raise ReadTimeout(e, request=request)
+    elif isinstance(e, DecodeError):
+        raise ContentDecodingError(e)  # More specific mapping
+    elif isinstance(e, TimeoutError):
+        raise Timeout(e, request=request)  # Catch parent TimeoutError class
+    else:
+        raise RequestException(e, request=request)  # Catch-all for everything else
+```
+
+But the **key insight** is that the `else: raise` must become `else: raise RequestException(...)` to prevent ANY leakage.
+
+---
+
+## Task Result
+
+### Problem Analysis
+
+The urllib3 exception leaking problem is a **systematic design flaw**, not a matter of missing specific exception handlers. The root cause is:
+
+```python
+except (_SSLError, _HTTPError) as e:
+    ...
+    else:
+        raise  # Bare re-raise allows ANY unhandled _HTTPError to leak
+```
+
+### The General Pattern
+
+**`_HTTPError` is the base class for almost all urllib3 exceptions.** The current code catches it broadly but only handles specific subclasses, allowing others to escape.
+
+### Exceptions That Can Leak (Current Code)
+
+- `DecodeError`
+- `TimeoutError` (parent class - when proxy times out)
+- `TimeoutStateError`
+- `LocationValueError` / `LocationParseError`
+- `ResponseError`
+- `ResponseNotChunked`
+- `PoolError` subclasses (EmptyPoolError, ClosedPoolError, HostChangedError)
+- Any **future** urllib3 exceptions
+
+### The Correct Solution (Design Principle)
+
+**Never use bare `raise` in exception handlers for urllib3 exceptions.** The final `else` clause must wrap unknown exceptions:
+
+```python
+else:
+    raise RequestException(e, request=request)  # NOT: raise
+```
+
+This ensures:
+
+1. All known exceptions get specific mappings
+2. All unknown/future exceptions get wrapped in `RequestException`
+3. Users ONLY ever see `requests.exceptions.*` types
+4. The solution is forward-compatible
+
+### Location of Fix
+
+The fix is **only needed in one place**: `requests/adapters.py` line 432-433. The bare `raise` must become `raise RequestException(e, request=request)`.
+
+Note: `models.py` already handles its urllib3 exceptions correctly (it wraps DecodeError → ContentDecodingError, etc.).
+
+---
+
+✅ **Subagent Complete**
+
+The fundamental design flaw is this pattern in `adapters.py`:
+
+```python
+except (_SSLError, _HTTPError) as e:
+    if isinstance(e, _SSLError):
+        raise SSLError(e, request=request)
+    elif isinstance(e, ReadTimeoutError):
+        raise ReadTimeout(e, request=request)
+    else:
+        raise  # <-- THIS IS THE BUG
+```
+
+**`_HTTPError` is the base class for nearly ALL urllib3 exceptions.** The code catches this broad base class but only handles a few specific subclasses. The `else: raise` lets everything else leak through as raw urllib3 exceptions.
+
+### Exceptions That Can Leak (Not Just DecodeError and TimeoutError)
+
+- `DecodeError`
+- `TimeoutError` (base class)
+- `TimeoutStateError`
+- `LocationValueError` / `LocationParseError`
+- `ResponseError`
+- `ResponseNotChunked`
+- `PoolError` subclasses (`EmptyPoolError`, `ClosedPoolError`, `HostChangedError`)
+- **Any future urllib3 exceptions**
+
+### The Correct Solution (Design Principle)
+
+The design goal of requests is: **Users should NEVER see urllib3 exceptions. They should only see `requests.exceptions.*` types.**
+
+The fix is to **never have a bare `raise`** that allows urllib3 exceptions to escape. The `else` clause should wrap any unhandled exception in the base `RequestException`:
+
+```python
+else:
+    raise  # WRONG - leaks urllib3 exceptions
+```
+
+Should become:
+
+```python
+else:
+    raise RequestException(e, request=request)  # CORRECT - wraps unknown exceptions
+```

@@ -1,0 +1,36 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -1282,6 +1282,7 @@
+                 if cur_depth > 1:
+                     break
+                 if name in self.query._filtered_relations:
++                    filtered_relation = self.query._filtered_relations[name]
+                     fields_found.add(name)
+                     final_field, _, join_opts, joins, _, _ = self.query.setup_joins(
+                         [name], opts, root_alias
+@@ -1291,14 +1292,23 @@
+                     from_parent = (
+                         issubclass(model, opts.model) and model is not opts.model
+                     )
++                    # For multi-level FilteredRelations (e.g. "pool__tournament__pool"),
++                    # there is no direct FK relationship to cache, so we use a no-op
++                    # local_setter to avoid setting wrong related objects.
++                    def local_setter_noop(obj, from_obj):
++                        pass
++
+                     klass_info = {
+                         "model": model,
+                         "field": final_field,
+                         "reverse": True,
+-                        "local_setter": partial(local_setter, final_field),
++                        "local_setter": local_setter_noop
++                        if LOOKUP_SEP in filtered_relation.relation_name
++                        else partial(local_setter, final_field),
+                         "remote_setter": partial(remote_setter, name),
+                         "from_parent": from_parent,
+                     }
++
+                     related_klass_infos.append(klass_info)
+                     select_fields = []
+                     field_select_mask = select_mask.get((name, final_field)) or {}

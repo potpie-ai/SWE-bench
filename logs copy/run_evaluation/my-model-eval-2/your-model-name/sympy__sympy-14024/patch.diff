@@ -1,0 +1,45 @@
+diff --git a/debug_powsimp.py b/debug_powsimp.py
+--- a/debug_powsimp.py
++++ b/debug_powsimp.py
+@@ -0,0 +1,28 @@
++from sympy import symbols, powsimp, S
++from sympy.core.numbers import Integer
++
++x = symbols('x')
++expr = ((-2)**x) * (2**(-x))
++print('Original expression:', expr)
++print('After powsimp:', powsimp(expr))
++
++# Let's also check what the individual bases look like
++b1, e1 = ((-2)**x).as_base_exp()
++b2, e2 = (2**(-x)).as_base_exp()
++print('Term 1: base=%s, exp=%s, base type=%s' % (b1, e1, type(b1).__name__))
++print('Term 2: base=%s, exp=%s, base type=%s' % (b2, e2, type(b2).__name__))
++
++print()
++print('Checking properties:')
++print('(-2).is_Symbol:', Integer(-2).is_Symbol)
++print('(-2).is_Add:', Integer(-2).is_Add)
++print('(2).is_Symbol:', Integer(2).is_Symbol)
++print('(2).is_Add:', Integer(2).is_Add)
++print('(-(-2)).is_Symbol:', (-Integer(-2)).is_Symbol)
++print('(-2).is_positive:', Integer(-2).is_positive)
++
++# Verify numeric results
++print('\n=== Numeric verification ===')
++from sympy import N
++print('(-2)**(-10/3) * 2**(10/3) =', N((-2)**(S(-10)/3) * (2)**(S(10)/3)))
++print('(-1)**(-10/3) =', N((-1)**(S(-10)/3)))
+
+diff --git a/sympy/simplify/powsimp.py b/sympy/simplify/powsimp.py
+--- a/sympy/simplify/powsimp.py
++++ b/sympy/simplify/powsimp.py
+@@ -202,7 +202,7 @@
+         be = list(c_powers.items())
+         _n = S.NegativeOne
+         for i, (b, e) in enumerate(be):
+-            if ((-b).is_Symbol or b.is_Add) and -b in c_powers:
++            if ((-b).is_Symbol or (-b).is_positive or b.is_Add) and -b in c_powers:
+                 if (b.is_positive in (0, 1) or e.is_integer):
+                     c_powers[-b] += c_powers.pop(b)
+                     if _n in c_powers:

@@ -1,0 +1,25 @@
+diff --git a/src/_pytest/tmpdir.py b/src/_pytest/tmpdir.py
+--- a/src/_pytest/tmpdir.py
++++ b/src/_pytest/tmpdir.py
+@@ -154,9 +154,20 @@
+     import getpass
+ 
+     try:
+-        return getpass.getuser()
++        user = getpass.getuser()
+     except (ImportError, KeyError):
+         return None
++
++    # From the documentation:
++    #   On Unix, the return value is the encoding of the entry in the
++    #   pwd database, not the encoding of the file system.
++    # On Windows, it's the environment variable USERNAME, or LOGNAME.
++    # The username may contain characters that are not valid in directory names,
++    # such as backslash on Windows (e.g., "contoso\john_doe" for domain users).
++    # Sanitize the username by replacing non-word characters with underscores.
++    user = re.sub(r"[\W]", "_", user)
++
++    return user
+ 
+ 
+ def pytest_configure(config: Config) -> None:

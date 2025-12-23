@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13220",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "16218c20606d8cd89c5393970c83da04598a3e04",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/core/exceptions.py b/django/core/exceptions.py\n--- a/django/core/exceptions.py\n+++ b/django/core/exceptions.py\n@@ -1,6 +1,9 @@\n \"\"\"\n Global Django exception and warning classes.\n \"\"\"\n+import operator\n+\n+from django.utils.hashable import make_hashable\n \n \n class FieldDoesNotExist(Exception):\n@@ -182,6 +185,23 @@ def __str__(self):\n     def __repr__(self):\n         return 'ValidationError(%s)' % self\n \n+    def __eq__(self, other):\n+        if not isinstance(other, ValidationError):\n+            return NotImplemented\n+        return hash(self) == hash(other)\n+\n+    def __hash__(self):\n+        # Ignore params and messages ordering.\n+        if hasattr(self, 'message'):\n+            return hash((\n+                self.message,\n+                self.code,\n+                tuple(sorted(make_hashable(self.params))) if self.params else None,\n+            ))\n+        if hasattr(self, 'error_dict'):\n+            return hash(tuple(sorted(make_hashable(self.error_dict))))\n+        return hash(tuple(sorted(self.error_list, key=operator.attrgetter('message'))))\n+\n \n class EmptyResultSet(Exception):\n     \"\"\"A database query predicate is impossible.\"\"\"\n",
+  "hint": "I probably wouldn't want to limit the comparison to an error's message but rather to its full set of attributes (message, code, params). While params is always pushed into message when iterating over the errors in an ValidationError, I believe it can be beneficial to know if the params that were put inside are the same.\n\u200bPR"
+}

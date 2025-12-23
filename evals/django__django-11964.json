@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11964",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "fc2b1cc926e34041953738e58fa6ad3053059b22",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:05",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/db/models/enums.py b/django/db/models/enums.py\n--- a/django/db/models/enums.py\n+++ b/django/db/models/enums.py\n@@ -60,7 +60,13 @@ def values(cls):\n \n class Choices(enum.Enum, metaclass=ChoicesMeta):\n     \"\"\"Class for creating enumerated choices.\"\"\"\n-    pass\n+\n+    def __str__(self):\n+        \"\"\"\n+        Use value when cast to str, so that Choices set as model instance\n+        attributes are rendered as expected in templates and similar contexts.\n+        \"\"\"\n+        return str(self.value)\n \n \n class IntegerChoices(int, Choices):\n",
+  "hint": "Hi NyanKiyoshi, what a lovely report. Thank you. Clearly :) the expected behaviour is that test_created_object_is_str should pass. It's interesting that the underlying __dict__ values differ, which explains all I guess: Created: {'_state': <django.db.models.base.ModelState object at 0x10730efd0>, 'id': 1, 'my_str_value': <MyChoice.FIRST_CHOICE: 'first'>} Retrieved: {'_state': <django.db.models.base.ModelState object at 0x1072b5eb8>, 'id': 1, 'my_str_value': 'first'} Good catch. Thanks again.\nSample project with provided models. Run ./manage.py test"
+}

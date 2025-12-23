@@ -1,0 +1,14 @@
+diff --git a/django/contrib/admin/checks.py b/django/contrib/admin/checks.py
+--- a/django/contrib/admin/checks.py
++++ b/django/contrib/admin/checks.py
+@@ -916,9 +916,7 @@
+                         id="admin.E108",
+                     )
+                 ]
+-        if isinstance(field, models.ManyToManyField) or (
+-            getattr(field, "rel", None) and field.rel.field.many_to_one
+-        ):
++        if getattr(field, "many_to_many", False) or getattr(field, "one_to_many", False):
+             return [
+                 checks.Error(
+                     f"The value of '{label}' must not be a many-to-many field or a "

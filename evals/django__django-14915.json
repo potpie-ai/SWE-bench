@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14915",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "903aaa35e5ceaa33bfc9b19b7f6da65ce5a91dd4",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/forms/models.py b/django/forms/models.py\n--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -1166,6 +1166,9 @@ def __init__(self, value, instance):\n     def __str__(self):\n         return str(self.value)\n \n+    def __hash__(self):\n+        return hash(self.value)\n+\n     def __eq__(self, other):\n         if isinstance(other, ModelChoiceIteratorValue):\n             other = other.value\n",
+  "hint": "Thanks for the ticket. Agreed, we could make ModelChoiceIteratorValue hashable by adding: def __hash__(self): return hash(self.value) For now you can use value.value as \u200bdocumented in the \"Backwards incompatible changes in 3.1\" section. Would you like to prepare a patch?\nReplying to Mariusz Felisiak: Thanks for the ticket. Agreed, we could make ModelChoiceIteratorValue hashable by adding: def __hash__(self): return hash(self.value) For now you can use value.value as \u200bdocumented in the \"Backwards incompatible changes in 3.1\" section. Would you like to prepare a patch? Yes, sure.\nPatch: \u200bhttps://github.com/django/django/pull/14915"
+}

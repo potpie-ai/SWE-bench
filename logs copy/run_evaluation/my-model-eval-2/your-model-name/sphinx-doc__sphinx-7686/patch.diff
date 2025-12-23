@@ -1,0 +1,20 @@
+diff --git a/sphinx/ext/autosummary/generate.py b/sphinx/ext/autosummary/generate.py
+--- a/sphinx/ext/autosummary/generate.py
++++ b/sphinx/ext/autosummary/generate.py
+@@ -247,6 +247,16 @@
+ 
+     if doc.objtype == 'module':
+         ns['members'] = dir(obj)
++        if not imported_members:
++            # filter members if imported_members is False
++            def is_local_member(name: str) -> bool:
++                try:
++                    value = safe_getattr(obj, name)
++                    module = getattr(value, '__module__', None)
++                    return module is None or module == obj.__name__
++                except AttributeError:
++                    return True
++            ns['members'] = [m for m in ns['members'] if is_local_member(m)]
+         ns['functions'], ns['all_functions'] = \
+             get_members(obj, {'function'}, imported=imported_members)
+         ns['classes'], ns['all_classes'] = \

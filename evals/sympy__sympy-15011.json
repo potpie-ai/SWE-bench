@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-15011",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "b7c5ba2bf3ffd5cf453b25af7c8ddd9a639800cb",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/utilities/lambdify.py b/sympy/utilities/lambdify.py\n--- a/sympy/utilities/lambdify.py\n+++ b/sympy/utilities/lambdify.py\n@@ -700,14 +700,13 @@ def _is_safe_ident(cls, ident):\n             return isinstance(ident, str) and cls._safe_ident_re.match(ident) \\\n                 and not (keyword.iskeyword(ident) or ident == 'None')\n \n-\n     def _preprocess(self, args, expr):\n         \"\"\"Preprocess args, expr to replace arguments that do not map\n         to valid Python identifiers.\n \n         Returns string form of args, and updated expr.\n         \"\"\"\n-        from sympy import Dummy, Symbol, Function, flatten\n+        from sympy import Dummy, Symbol, MatrixSymbol, Function, flatten\n         from sympy.matrices import DeferredVector\n \n         dummify = self._dummify\n@@ -725,7 +724,7 @@ def _preprocess(self, args, expr):\n                 argstrs.append(nested_argstrs)\n             elif isinstance(arg, DeferredVector):\n                 argstrs.append(str(arg))\n-            elif isinstance(arg, Symbol):\n+            elif isinstance(arg, Symbol) or isinstance(arg, MatrixSymbol):\n                 argrep = self._argrepr(arg)\n \n                 if dummify or not self._is_safe_ident(argrep):\n@@ -739,7 +738,14 @@ def _preprocess(self, args, expr):\n                 argstrs.append(self._argrepr(dummy))\n                 expr = self._subexpr(expr, {arg: dummy})\n             else:\n-                argstrs.append(str(arg))\n+                argrep = self._argrepr(arg)\n+\n+                if dummify:\n+                    dummy = Dummy()\n+                    argstrs.append(self._argrepr(dummy))\n+                    expr = self._subexpr(expr, {arg: dummy})\n+                else:\n+                    argstrs.append(str(arg))\n \n         return argstrs, expr\n \n",
+  "hint": "The default here should be to always dummify, unless dummify is explicitly False https://github.com/sympy/sympy/blob/a78cf1d3efe853f1c360f962c5582b1d3d29ded3/sympy/utilities/lambdify.py?utf8=%E2%9C%93#L742\nHi, I would like to work on this if possible"
+}

@@ -1,0 +1,1231 @@
+Entry 1:
+Instance ID: django__django-11630
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -4,7 +4,9 @@
+ from itertools import chain
+ 
+ from django.apps import apps
++from django.conf import settings
+ from django.core.checks import Error, Tags, register
++from django.db import router
+ 
+ 
+ @register(Tags.models)
+@@ -19,7 +21,7 @@
+         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
+     for model in models:
+         if model._meta.managed and not model._meta.proxy:
+-            db_table_models[model._meta.db_table].append(model._meta.label)
++            db_table_models[model._meta.db_table].append(model)
+         if not inspect.ismethod(model.check):
+             errors.append(
+                 Error(
+@@ -35,16 +37,26 @@
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
+-    for db_table, model_labels in db_table_models.items():
+-        if len(model_labels) != 1:
+-            errors.append(
+-                Error(
+-                    "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
+-                    obj=db_table,
+-                    id='models.E028',
+-                )
+-            )
++    for db_table, model_list in db_table_models.items():
++        if len(model_list) != 1:
++            # Check if models share a database, as different databases may
++            # have the same table name.
++            for db in settings.DATABASES:
++                models_in_db = [
++                    model._meta.label
++                    for model in model_list
++                    if router.allow_migrate_model(db, model)
++                ]
++                if len(models_in_db) > 1:
++                    errors.append(
++                        Error(
++                            "db_table '%s' is used by multiple models: %s."
++                            % (db_table, ', '.join(models_in_db)),
++                            obj=db_table,
++                            id='models.E028',
++                        )
++                    )
++                    break
+     for index_name, model_labels in indexes.items():
+         if len(model_labels) > 1:
+             model_labels = set(model_labels)
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/core/checks/model_checks.py b/django/core/checks/model_checks.py
+--- a/django/core/checks/model_checks.py
++++ b/django/core/checks/model_checks.py
+@@ -4,7 +4,8 @@
+ from itertools import chain
+ 
+ from django.apps import apps
+-from django.core.checks import Error, Tags, register
++from django.conf import settings
++from django.core.checks import Error, Tags, Warning, register
+ 
+ 
+ @register(Tags.models)
+@@ -35,14 +36,25 @@ def check_all_models(app_configs=None, **kwargs):
+             indexes[model_index.name].append(model._meta.label)
+         for model_constraint in model._meta.constraints:
+             constraints[model_constraint.name].append(model._meta.label)
++    if settings.DATABASE_ROUTERS:
++        error_class, error_id = Warning, 'models.W035'
++        error_hint = (
++            'You have configured settings.DATABASE_ROUTERS. Verify that %s '
++            'are correctly routed to separate databases.'
++        )
++    else:
++        error_class, error_id = Error, 'models.E028'
++        error_hint = None
+     for db_table, model_labels in db_table_models.items():
+         if len(model_labels) != 1:
++            model_labels_str = ', '.join(model_labels)
+             errors.append(
+-                Error(
++                error_class(
+                     "db_table '%s' is used by multiple models: %s."
+-                    % (db_table, ', '.join(db_table_models[db_table])),
++                    % (db_table, model_labels_str),
+                     obj=db_table,
+-                    id='models.E028',
++                    hint=(error_hint % model_labels_str) if error_hint else None,
++                    id=error_id,
+                 )
+             )
+     for index_name, model_labels in indexes.items():
+
+----------------------------------------
+
+Entry 2:
+Instance ID: django__django-12113
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/test/testcases.py b/django/test/testcases.py
+--- a/django/test/testcases.py
++++ b/django/test/testcases.py
+@@ -1079,7 +1079,7 @@
+     def _enter_atomics(cls):
+         """Open atomic blocks for multiple databases."""
+         atomics = {}
+-        for db_name in cls._databases_names():
++        for db_name in cls._databases_names(include_mirrors=False):
+             atomics[db_name] = transaction.atomic(using=db_name)
+             atomics[db_name].__enter__()
+         return atomics
+@@ -1087,7 +1087,7 @@
+     @classmethod
+     def _rollback_atomics(cls, atomics):
+         """Rollback atomic blocks opened by the previous method."""
+-        for db_name in reversed(cls._databases_names()):
++        for db_name in reversed(cls._databases_names(include_mirrors=False)):
+             transaction.set_rollback(True, using=db_name)
+             atomics[db_name].__exit__(None, None, None)
+ 
+@@ -1149,7 +1149,7 @@
+         if not self._databases_support_transactions():
+             return super()._fixture_teardown()
+         try:
+-            for db_name in reversed(self._databases_names()):
++            for db_name in reversed(self._databases_names(include_mirrors=False)):
+                 if self._should_check_constraints(connections[db_name]):
+                     connections[db_name].check_constraints()
+         finally:
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/db/backends/sqlite3/creation.py b/django/db/backends/sqlite3/creation.py
+--- a/django/db/backends/sqlite3/creation.py
++++ b/django/db/backends/sqlite3/creation.py
+@@ -98,4 +98,6 @@ def test_db_signature(self):
+         sig = [self.connection.settings_dict['NAME']]
+         if self.is_in_memory_db(test_database_name):
+             sig.append(self.connection.alias)
++        else:
++            sig.append(test_database_name)
+         return tuple(sig)
+
+----------------------------------------
+
+Entry 3:
+Instance ID: django__django-12184
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -159,7 +159,7 @@
+             # non-named groups. Otherwise, pass all non-named arguments as
+             # positional arguments.
+             kwargs = {k: v for k, v in match.groupdict().items() if v is not None}
+-            args = () if kwargs else match.groups()
++            args = () if match.re.groupindex else match.groups()
+             return path[match.end():], args, kwargs
+         return None
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/urls/resolvers.py b/django/urls/resolvers.py
+--- a/django/urls/resolvers.py
++++ b/django/urls/resolvers.py
+@@ -158,8 +158,9 @@ def match(self, path):
+             # If there are any named groups, use those as kwargs, ignoring
+             # non-named groups. Otherwise, pass all non-named arguments as
+             # positional arguments.
+-            kwargs = {k: v for k, v in match.groupdict().items() if v is not None}
++            kwargs = match.groupdict()
+             args = () if kwargs else match.groups()
++            kwargs = {k: v for k, v in kwargs.items() if v is not None}
+             return path[match.end():], args, kwargs
+         return None
+ 
+
+----------------------------------------
+
+Entry 4:
+Instance ID: django__django-12589
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1050,12 +1050,11 @@
+         return sql, sql_params
+ 
+     def get_group_by_cols(self, alias=None):
+-        if alias:
+-            return [Ref(alias, self)]
+         external_cols = self.query.get_external_cols()
+         if any(col.possibly_multivalued for col in external_cols):
+             return [self]
+         return external_cols
++
+ 
+ 
+ class Exists(Subquery):
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1927,6 +1927,19 @@ def set_group_by(self, allow_aliases=True):
+         primary key, and the query would be equivalent, the optimization
+         will be made automatically.
+         """
++        # Column names from JOINs to check collisions with aliases.
++        if allow_aliases:
++            column_names = set()
++            seen_models = set()
++            for join in list(self.alias_map.values())[1:]:  # Skip base table.
++                model = join.join_field.related_model
++                if model not in seen_models:
++                    column_names.update({
++                        field.column
++                        for field in model._meta.local_concrete_fields
++                    })
++                    seen_models.add(model)
++
+         group_by = list(self.select)
+         if self.annotation_select:
+             for alias, annotation in self.annotation_select.items():
+@@ -1940,7 +1953,7 @@ def set_group_by(self, allow_aliases=True):
+                     warnings.warn(msg, category=RemovedInDjango40Warning)
+                     group_by_cols = annotation.get_group_by_cols()
+                 else:
+-                    if not allow_aliases:
++                    if not allow_aliases or alias in column_names:
+                         alias = None
+                     group_by_cols = annotation.get_group_by_cols(alias=alias)
+                 group_by.extend(group_by_cols)
+
+----------------------------------------
+
+Entry 5:
+Instance ID: django__django-13230
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py
+--- a/django/contrib/syndication/views.py
++++ b/django/contrib/syndication/views.py
+@@ -209,6 +209,7 @@
+                 enclosures=enclosures,
+                 pubdate=pubdate,
+                 updateddate=updateddate,
++                comments=self._get_dynamic_attr('item_comments', item),
+                 author_name=author_name,
+                 author_email=author_email,
+                 author_link=author_link,
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/contrib/syndication/views.py b/django/contrib/syndication/views.py
+--- a/django/contrib/syndication/views.py
++++ b/django/contrib/syndication/views.py
+@@ -212,6 +212,7 @@ def get_feed(self, obj, request):
+                 author_name=author_name,
+                 author_email=author_email,
+                 author_link=author_link,
++                comments=self._get_dynamic_attr('item_comments', item),
+                 categories=self._get_dynamic_attr('item_categories', item),
+                 item_copyright=self._get_dynamic_attr('item_copyright', item),
+                 **self.item_extra_kwargs(item)
+
+----------------------------------------
+
+Entry 6:
+Instance ID: django__django-13590
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1077,10 +1077,14 @@
+         elif isinstance(value, (list, tuple)):
+             # The items of the iterable may be expressions and therefore need
+             # to be resolved independently.
+-            return type(value)(
++            type_ = type(value)
++            resolved = (
+                 self.resolve_lookup_value(sub_value, can_reuse, allow_joins)
+                 for sub_value in value
+             )
++            if hasattr(type_, '_make'):  # namedtuple
++                return type_._make(resolved)
++            return type_(resolved)
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1077,10 +1077,14 @@ def resolve_lookup_value(self, value, can_reuse, allow_joins):
+         elif isinstance(value, (list, tuple)):
+             # The items of the iterable may be expressions and therefore need
+             # to be resolved independently.
+-            return type(value)(
++            values = (
+                 self.resolve_lookup_value(sub_value, can_reuse, allow_joins)
+                 for sub_value in value
+             )
++            type_ = type(value)
++            if hasattr(type_, '_make'):  # namedtuple
++                return type_(*values)
++            return type_(values)
+         return value
+ 
+     def solve_lookup_type(self, lookup):
+
+----------------------------------------
+
+Entry 7:
+Instance ID: django__django-13660
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -84,13 +84,13 @@
+     def handle(self, **options):
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            exec(options['command'], {})
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), {})
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/core/management/commands/shell.py b/django/core/management/commands/shell.py
+--- a/django/core/management/commands/shell.py
++++ b/django/core/management/commands/shell.py
+@@ -84,13 +84,13 @@ def python(self, options):
+     def handle(self, **options):
+         # Execute the command and exit.
+         if options['command']:
+-            exec(options['command'])
++            exec(options['command'], globals())
+             return
+ 
+         # Execute stdin if it has anything to read and exit.
+         # Not supported on Windows due to select.select() limitations.
+         if sys.platform != 'win32' and not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0)[0]:
+-            exec(sys.stdin.read())
++            exec(sys.stdin.read(), globals())
+             return
+ 
+         available_shells = [options['interface']] if options['interface'] else self.shells
+
+----------------------------------------
+
+Entry 8:
+Instance ID: django__django-13925
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1302,6 +1302,10 @@
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
++            # If the primary key is a parent link field (inheriting from parent model),
++            # don't raise the warning since the primary key is defined in the parent.
++            if cls._meta.pk.remote_field and cls._meta.pk.remote_field.parent_link:
++                return []
+             return [
+                 checks.Warning(
+                     f"Auto-created primary key used when not defining a "
+@@ -1318,6 +1322,7 @@
+                 ),
+             ]
+         return []
++
+ 
+     @classmethod
+     def _check_swappable(cls):
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1299,6 +1299,11 @@ def check(cls, **kwargs):
+     def _check_default_pk(cls):
+         if (
+             cls._meta.pk.auto_created and
++            # Inherited PKs are checked in parents models.
++            not (
++                isinstance(cls._meta.pk, OneToOneField) and
++                cls._meta.pk.remote_field.parent_link
++            ) and
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
+
+----------------------------------------
+
+Entry 9:
+Instance ID: django__django-15213
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -979,7 +979,17 @@
+         return super().get_group_by_cols()
+ 
+     def as_sql(self, compiler, connection):
+-        return compiler.compile(self.expression)
++        try:
++            sql, params = compiler.compile(self.expression)
++        except EmptyResultSet:
++            # Condition always evaluates to False (e.g., Q(pk__in=[]))
++            sql, params = compiler.compile(Value(False))
++        else:
++            # Empty SQL means the condition always evaluates to True
++            # (e.g., ~Q(pk__in=[]))
++            if not sql:
++                sql, params = compiler.compile(Value(True))
++        return sql, params
+ 
+     def __repr__(self):
+         return "{}({})".format(self.__class__.__name__, self.expression)
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -994,6 +994,15 @@ def formfield(self, **kwargs):
+             defaults = {'form_class': form_class, 'required': False}
+         return super().formfield(**{**defaults, **kwargs})
+ 
++    def select_format(self, compiler, sql, params):
++        sql, params = super().select_format(compiler, sql, params)
++        # Filters that match everything are handled as empty strings in the
++        # WHERE clause, but in SELECT or GROUP BY list they must use a
++        # predicate that's always True.
++        if sql == '':
++            sql = '1'
++        return sql, params
++
+ 
+ class CharField(Field):
+     description = _("String (up to %(max_length)s)")
+
+----------------------------------------
+
+Entry 10:
+Instance ID: django__django-15400
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -365,6 +365,12 @@
+     __ne__ = new_method_proxy(operator.ne)
+     __hash__ = new_method_proxy(hash)
+ 
++    def __radd__(self, other):
++        if self._wrapped is empty:
++            self._setup()
++        return other + self._wrapped
++
++
+     # List/Tuple/Dictionary methods support
+     __getitem__ = new_method_proxy(operator.getitem)
+     __setitem__ = new_method_proxy(operator.setitem)
+----------------------------------------
+
+Expected Patch:
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -432,6 +432,12 @@ def __deepcopy__(self, memo):
+             return result
+         return copy.deepcopy(self._wrapped, memo)
+ 
++    __add__ = new_method_proxy(operator.add)
++
++    @new_method_proxy
++    def __radd__(self, other):
++        return other + self
++
+ 
+ def partition(predicate, values):
+     """
+
+----------------------------------------
+
+Entry 11:
+Instance ID: matplotlib__matplotlib-23476
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/lib/matplotlib/backend_bases.py b/lib/matplotlib/backend_bases.py
+--- a/lib/matplotlib/backend_bases.py
++++ b/lib/matplotlib/backend_bases.py
+@@ -1653,7 +1653,8 @@
+         self.toolbar = None  # NavigationToolbar2 will set me
+         self._is_idle_drawing = False
+         # We don't want to scale up the figure DPI more than once.
+-        figure._original_dpi = figure.dpi
++        if not hasattr(figure, '_original_dpi'):
++            figure._original_dpi = figure.dpi
+         self._device_pixel_ratio = 1
+         super().__init__()  # Typically the GUI widget init (if any).
+----------------------------------------
+
+Expected Patch:
+diff --git a/lib/matplotlib/figure.py b/lib/matplotlib/figure.py
+--- a/lib/matplotlib/figure.py
++++ b/lib/matplotlib/figure.py
+@@ -3023,6 +3023,9 @@ def __getstate__(self):
+         # Set cached renderer to None -- it can't be pickled.
+         state["_cachedRenderer"] = None
+ 
++        # discard any changes to the dpi due to pixel ratio changes
++        state["_dpi"] = state.get('_original_dpi', state['_dpi'])
++
+         # add version information to the state
+         state['__mpl_version__'] = mpl.__version__
+ 
+
+----------------------------------------
+
+Entry 12:
+Instance ID: matplotlib__matplotlib-23987
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/lib/matplotlib/figure.py b/lib/matplotlib/figure.py
+--- a/lib/matplotlib/figure.py
++++ b/lib/matplotlib/figure.py
+@@ -2416,7 +2416,7 @@
+                     "The Figure parameters 'layout' and 'constrained_layout' "
+                     "cannot be used together. Please use 'layout' only.")
+             self.set_layout_engine(layout=layout)
+-        elif tight_layout is not None:
++        elif tight_layout:
+             if constrained_layout is not None:
+                 _api.warn_external(
+                     "The Figure parameters 'tight_layout' and "
+@@ -2425,7 +2425,7 @@
+             self.set_layout_engine(layout='tight')
+             if isinstance(tight_layout, dict):
+                 self.get_layout_engine().set(**tight_layout)
+-        elif constrained_layout is not None:
++        elif constrained_layout:
+             self.set_layout_engine(layout='constrained')
+             if isinstance(constrained_layout, dict):
+                 self.get_layout_engine().set(**constrained_layout)
+----------------------------------------
+
+Expected Patch:
+diff --git a/lib/matplotlib/figure.py b/lib/matplotlib/figure.py
+--- a/lib/matplotlib/figure.py
++++ b/lib/matplotlib/figure.py
+@@ -2426,9 +2426,12 @@ def __init__(self,
+             if isinstance(tight_layout, dict):
+                 self.get_layout_engine().set(**tight_layout)
+         elif constrained_layout is not None:
+-            self.set_layout_engine(layout='constrained')
+             if isinstance(constrained_layout, dict):
++                self.set_layout_engine(layout='constrained')
+                 self.get_layout_engine().set(**constrained_layout)
++            elif constrained_layout:
++                self.set_layout_engine(layout='constrained')
++
+         else:
+             # everything is None, so use default:
+             self.set_layout_engine(layout=layout)
+
+----------------------------------------
+
+Entry 13:
+Instance ID: mwaskom__seaborn-3190
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/seaborn/_core/properties.py b/seaborn/_core/properties.py
+--- a/seaborn/_core/properties.py
++++ b/seaborn/_core/properties.py
+@@ -563,6 +563,17 @@
+             return to_rgba_array(colors)
+         else:
+             return to_rgba_array(colors)[:, :3]
++
++
++    def default_scale(self, data: Series) -> Scale:
++        """Given data, initialize appropriate scale class."""
++        var_type = variable_type(data, boolean_type="categorical")
++        if var_type == "numeric":
++            return Continuous()
++        elif var_type == "datetime":
++            return Temporal()
++        else:
++            return Nominal()
+ 
+     def infer_scale(self, arg: Any, data: Series) -> Scale:
+         # TODO when inferring Continuous without data, verify type
+----------------------------------------
+
+Expected Patch:
+diff --git a/seaborn/_core/scales.py b/seaborn/_core/scales.py
+--- a/seaborn/_core/scales.py
++++ b/seaborn/_core/scales.py
+@@ -346,7 +346,7 @@ def _setup(
+                 vmin, vmax = data.min(), data.max()
+             else:
+                 vmin, vmax = new.norm
+-            vmin, vmax = axis.convert_units((vmin, vmax))
++            vmin, vmax = map(float, axis.convert_units((vmin, vmax)))
+             a = forward(vmin)
+             b = forward(vmax) - forward(vmin)
+ 
+
+----------------------------------------
+
+Entry 14:
+Instance ID: psf__requests-1963
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/requests/sessions.py b/requests/sessions.py
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -86,6 +86,7 @@
+         """Receives a Response. Returns a generator of Responses."""
+ 
+         i = 0
++        method = req.method
+ 
+         while resp.is_redirect:
+             prepared_request = req.copy()
+@@ -99,7 +100,6 @@
+             resp.close()
+ 
+             url = resp.headers['location']
+-            method = req.method
+ 
+             # Handle redirection without scheme (see: RFC 1808 Section 4)
+             if url.startswith('//'):
+----------------------------------------
+
+Expected Patch:
+diff --git a/requests/sessions.py b/requests/sessions.py
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -168,8 +168,11 @@ def resolve_redirects(self, resp, req, stream=False, timeout=None,
+             if new_auth is not None:
+                 prepared_request.prepare_auth(new_auth)
+ 
++            # Override the original request.
++            req = prepared_request
++
+             resp = self.send(
+-                prepared_request,
++                req,
+                 stream=stream,
+                 timeout=timeout,
+                 verify=verify,
+
+----------------------------------------
+
+Entry 15:
+Instance ID: psf__requests-2148
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/requests/models.py b/requests/models.py
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -9,6 +9,7 @@
+ 
+ import collections
+ import datetime
++import socket
+ 
+ from io import BytesIO, UnsupportedOperation
+ from .hooks import default_hooks
+@@ -22,7 +23,7 @@
+ from .packages.urllib3.exceptions import DecodeError
+ from .exceptions import (
+     HTTPError, RequestException, MissingSchema, InvalidURL,
+-    ChunkedEncodingError, ContentDecodingError)
++    ChunkedEncodingError, ContentDecodingError, ConnectionError)
+ from .utils import (
+     guess_filename, get_auth_from_url, requote_uri,
+     stream_decode_response_unicode, to_key_val_list, parse_header_links,
+@@ -640,6 +641,8 @@
+                     raise ChunkedEncodingError(e)
+                 except DecodeError as e:
+                     raise ContentDecodingError(e)
++                except socket.error as e:
++                    raise ConnectionError(e)
+             except AttributeError:
+                 # Standard file-like object.
+                 while True:
+----------------------------------------
+
+Expected Patch:
+diff --git a/requests/models.py b/requests/models.py
+--- a/requests/models.py
++++ b/requests/models.py
+@@ -9,6 +9,7 @@
+ 
+ import collections
+ import datetime
++import socket
+ 
+ from io import BytesIO, UnsupportedOperation
+ from .hooks import default_hooks
+@@ -22,7 +23,7 @@
+ from .packages.urllib3.exceptions import DecodeError
+ from .exceptions import (
+     HTTPError, RequestException, MissingSchema, InvalidURL,
+-    ChunkedEncodingError, ContentDecodingError)
++    ChunkedEncodingError, ContentDecodingError, ConnectionError)
+ from .utils import (
+     guess_filename, get_auth_from_url, requote_uri,
+     stream_decode_response_unicode, to_key_val_list, parse_header_links,
+@@ -640,6 +641,8 @@ def generate():
+                     raise ChunkedEncodingError(e)
+                 except DecodeError as e:
+                     raise ContentDecodingError(e)
++                except socket.error as e:
++                    raise ConnectionError(e)
+             except AttributeError:
+                 # Standard file-like object.
+                 while True:
+
+----------------------------------------
+
+Entry 16:
+Instance ID: psf__requests-2674
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/requests/adapters.py b/requests/adapters.py
+--- a/requests/adapters.py
++++ b/requests/adapters.py
+@@ -29,7 +29,7 @@
+ from .packages.urllib3.exceptions import ResponseError
+ from .cookies import extract_cookies_to_jar
+ from .exceptions import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
+-                         ProxyError, RetryError)
++                         ProxyError, RetryError, RequestException)
+ from .auth import _basic_auth_str
+ 
+ DEFAULT_POOLBLOCK = False
+@@ -430,6 +430,6 @@
+             elif isinstance(e, ReadTimeoutError):
+                 raise ReadTimeout(e, request=request)
+             else:
+-                raise
++                raise RequestException(e, request=request)
+ 
+         return self.build_response(request, resp)
+
+----------------------------------------
+
+Expected Patch:
+diff --git a/requests/adapters.py b/requests/adapters.py
+--- a/requests/adapters.py
++++ b/requests/adapters.py
+@@ -19,6 +19,7 @@
+ from .utils import (DEFAULT_CA_BUNDLE_PATH, get_encoding_from_headers,
+                     prepend_scheme_if_needed, get_auth_from_url, urldefragauth)
+ from .structures import CaseInsensitiveDict
++from .packages.urllib3.exceptions import ClosedPoolError
+ from .packages.urllib3.exceptions import ConnectTimeoutError
+ from .packages.urllib3.exceptions import HTTPError as _HTTPError
+ from .packages.urllib3.exceptions import MaxRetryError
+@@ -421,6 +422,9 @@ def send(self, request, stream=False, timeout=None, verify=True, cert=None, prox
+ 
+             raise ConnectionError(e, request=request)
+ 
++        except ClosedPoolError as e:
++            raise ConnectionError(e, request=request)
++
+         except _ProxyError as e:
+             raise ProxyError(e)
+ 
+
+----------------------------------------
+
+Entry 17:
+Instance ID: pylint-dev__pylint-7080
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/pylint/lint/pylinter.py b/pylint/lint/pylinter.py
+--- a/pylint/lint/pylinter.py
++++ b/pylint/lint/pylinter.py
+@@ -614,6 +614,12 @@
+                             os.path.join(root, file)
+                             for file in files
+                             if file.endswith(".py")
++                            and not _is_ignored_file(
++                                os.path.join(root, file),
++                                self.config.ignore,
++                                self.config.ignore_patterns,
++                                self.config.ignore_paths,
++                            )
+                         )
+             else:
+                 yield something
+----------------------------------------
+
+Expected Patch:
+diff --git a/pylint/lint/expand_modules.py b/pylint/lint/expand_modules.py
+--- a/pylint/lint/expand_modules.py
++++ b/pylint/lint/expand_modules.py
+@@ -52,6 +52,7 @@ def _is_ignored_file(
+     ignore_list_re: list[Pattern[str]],
+     ignore_list_paths_re: list[Pattern[str]],
+ ) -> bool:
++    element = os.path.normpath(element)
+     basename = os.path.basename(element)
+     return (
+         basename in ignore_list
+
+----------------------------------------
+
+Entry 18:
+Instance ID: scikit-learn__scikit-learn-10949
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sklearn/utils/validation.py b/sklearn/utils/validation.py
+--- a/sklearn/utils/validation.py
++++ b/sklearn/utils/validation.py
+@@ -466,6 +466,11 @@
+         # not a data type (e.g. a column named dtype in a pandas DataFrame)
+         dtype_orig = None
+ 
++    # dtype_orig could be None for objects without dtype attribute (e.g.,
++    # pandas DataFrame). In that case, get the dtype from conversion.
++    if dtype_orig is None and hasattr(array, '__array__'):
++        dtype_orig = np.asarray(array).dtype
++
+     if dtype_numeric:
+         if dtype_orig is not None and dtype_orig.kind == "O":
+             # if input is object, convert to float.
+----------------------------------------
+
+Expected Patch:
+diff --git a/sklearn/utils/validation.py b/sklearn/utils/validation.py
+--- a/sklearn/utils/validation.py
++++ b/sklearn/utils/validation.py
+@@ -466,6 +466,12 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
+         # not a data type (e.g. a column named dtype in a pandas DataFrame)
+         dtype_orig = None
+ 
++    # check if the object contains several dtypes (typically a pandas
++    # DataFrame), and store them. If not, store None.
++    dtypes_orig = None
++    if hasattr(array, "dtypes") and hasattr(array, "__array__"):
++        dtypes_orig = np.array(array.dtypes)
++
+     if dtype_numeric:
+         if dtype_orig is not None and dtype_orig.kind == "O":
+             # if input is object, convert to float.
+@@ -581,6 +587,16 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
+     if copy and np.may_share_memory(array, array_orig):
+         array = np.array(array, dtype=dtype, order=order)
+ 
++    if (warn_on_dtype and dtypes_orig is not None and
++            {array.dtype} != set(dtypes_orig)):
++        # if there was at the beginning some other types than the final one
++        # (for instance in a DataFrame that can contain several dtypes) then
++        # some data must have been converted
++        msg = ("Data with input dtype %s were all converted to %s%s."
++               % (', '.join(map(str, sorted(set(dtypes_orig)))), array.dtype,
++                  context))
++        warnings.warn(msg, DataConversionWarning, stacklevel=3)
++
+     return array
+ 
+ 
+
+----------------------------------------
+
+Entry 19:
+Instance ID: scikit-learn__scikit-learn-25570
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sklearn/compose/_column_transformer.py b/sklearn/compose/_column_transformer.py
+--- a/sklearn/compose/_column_transformer.py
++++ b/sklearn/compose/_column_transformer.py
+@@ -379,22 +379,23 @@
+         get_weight = (self.transformer_weights or {}).get
+ 
+         output_config = _get_output_config("transform", self)
+         for name, trans, columns in transformers:
+             if replace_strings:
+-                # replace 'passthrough' with identity transformer and
+-                # skip in case of 'drop'
++                # skip in case of 'drop' or if the column selection is empty
++                if trans == "drop":
++                    continue
++                elif _is_empty_column_selection(columns):
++                    continue
++
++                # replace 'passthrough' with identity transformer
+                 if trans == "passthrough":
+                     trans = FunctionTransformer(
+                         accept_sparse=True,
+                         check_inverse=False,
+                         feature_names_out="one-to-one",
+                     ).set_output(transform=output_config["dense"])
+-                elif trans == "drop":
+-                    continue
+-                elif _is_empty_column_selection(columns):
+-                    continue
+ 
+             if column_as_strings:
+                 # Convert all columns to using their string labels
+                 columns_is_scalar = np.isscalar(columns)
+ 
+@@ -581,25 +582,24 @@
+     def _update_fitted_transformers(self, transformers):
+         # transformers are fitted; excludes 'drop' cases
+         fitted_transformers = iter(transformers)
+         transformers_ = []
+         self._name_to_fitted_passthrough = {}
+-
+         for name, old, column, _ in self._iter():
+             if old == "drop":
+                 trans = "drop"
++            elif _is_empty_column_selection(column):
++                trans = old
+             elif old == "passthrough":
+                 # FunctionTransformer is present in list of transformers,
+                 # so get next transformer, but save original string
+                 func_transformer = next(fitted_transformers)
+                 trans = "passthrough"
+ 
+                 # The fitted FunctionTransformer is saved in another attribute,
+                 # so it can be used during transform for set_output.
+                 self._name_to_fitted_passthrough[name] = func_transformer
+-            elif _is_empty_column_selection(column):
+-                trans = old
+             else:
+                 trans = next(fitted_transformers)
+             transformers_.append((name, trans, column))
+ 
+         # sanity check that transformers is exhausted
+----------------------------------------
+
+Expected Patch:
+diff --git a/sklearn/compose/_column_transformer.py b/sklearn/compose/_column_transformer.py
+--- a/sklearn/compose/_column_transformer.py
++++ b/sklearn/compose/_column_transformer.py
+@@ -865,7 +865,9 @@ def _hstack(self, Xs):
+                 transformer_names = [
+                     t[0] for t in self._iter(fitted=True, replace_strings=True)
+                 ]
+-                feature_names_outs = [X.columns for X in Xs]
++                # Selection of columns might be empty.
++                # Hence feature names are filtered for non-emptiness.
++                feature_names_outs = [X.columns for X in Xs if X.shape[1] != 0]
+                 names_out = self._add_prefix_for_feature_names_out(
+                     list(zip(transformer_names, feature_names_outs))
+                 )
+
+----------------------------------------
+
+Entry 20:
+Instance ID: scikit-learn__scikit-learn-25747
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sklearn/utils/_set_output.py b/sklearn/utils/_set_output.py
+--- a/sklearn/utils/_set_output.py
++++ b/sklearn/utils/_set_output.py
+@@ -55,7 +55,7 @@
+     if isinstance(data_to_wrap, pd.DataFrame):
+         if columns is not None:
+             data_to_wrap.columns = columns
+-        if index is not None:
++        if index is not None and len(index) == len(data_to_wrap):
+             data_to_wrap.index = index
+         return data_to_wrap
+----------------------------------------
+
+Expected Patch:
+diff --git a/sklearn/utils/_set_output.py b/sklearn/utils/_set_output.py
+--- a/sklearn/utils/_set_output.py
++++ b/sklearn/utils/_set_output.py
+@@ -34,7 +34,7 @@ def _wrap_in_pandas_container(
+         `range(n_features)`.
+ 
+     index : array-like, default=None
+-        Index for data.
++        Index for data. `index` is ignored if `data_to_wrap` is already a DataFrame.
+ 
+     Returns
+     -------
+@@ -55,8 +55,6 @@ def _wrap_in_pandas_container(
+     if isinstance(data_to_wrap, pd.DataFrame):
+         if columns is not None:
+             data_to_wrap.columns = columns
+-        if index is not None:
+-            data_to_wrap.index = index
+         return data_to_wrap
+ 
+     return pd.DataFrame(data_to_wrap, index=index, columns=columns)
+
+----------------------------------------
+
+Entry 21:
+Instance ID: sphinx-doc__sphinx-8595
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1074,7 +1074,7 @@
+     def get_object_members(self, want_all: bool) -> Tuple[bool, ObjectMembers]:
+         members = self.get_module_members()
+         if want_all:
+-            if not self.__all__:
++            if self.__all__ is None:
+                 # for implicit module members, check __module__ to avoid
+                 # documenting imported objects
+                 return True, list(members.values())
+----------------------------------------
+
+Expected Patch:
+diff --git a/sphinx/ext/autodoc/__init__.py b/sphinx/ext/autodoc/__init__.py
+--- a/sphinx/ext/autodoc/__init__.py
++++ b/sphinx/ext/autodoc/__init__.py
+@@ -1074,7 +1074,7 @@ def get_module_members(self) -> Dict[str, ObjectMember]:
+     def get_object_members(self, want_all: bool) -> Tuple[bool, ObjectMembers]:
+         members = self.get_module_members()
+         if want_all:
+-            if not self.__all__:
++            if self.__all__ is None:
+                 # for implicit module members, check __module__ to avoid
+                 # documenting imported objects
+                 return True, list(members.values())
+
+----------------------------------------
+
+Entry 22:
+Instance ID: sympy__sympy-15011
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sympy/utilities/lambdify.py b/sympy/utilities/lambdify.py
+--- a/sympy/utilities/lambdify.py
++++ b/sympy/utilities/lambdify.py
+@@ -708,7 +708,7 @@
+         Returns string form of args, and updated expr.
+         """
+         from sympy import Dummy, Symbol, Function, flatten
+-        from sympy.matrices import DeferredVector
++        from sympy.matrices import DeferredVector, MatrixSymbol
+ 
+         dummify = self._dummify
+ 
+@@ -738,6 +738,16 @@
+                 dummy = Dummy()
+                 argstrs.append(self._argrepr(dummy))
+                 expr = self._subexpr(expr, {arg: dummy})
++            elif isinstance(arg, MatrixSymbol):
++                argrep = self._argrepr(arg)
++
++                if dummify or not self._is_safe_ident(argrep):
++                    dummy = Dummy()
++                    dummy_matrix = MatrixSymbol(dummy.name, *arg.shape)
++                    argstrs.append(self._argrepr(dummy_matrix))
++                    expr = self._subexpr(expr, {arg: dummy_matrix})
++                else:
++                    argstrs.append(argrep)
+             else:
+                 argstrs.append(str(arg))
+----------------------------------------
+
+Expected Patch:
+diff --git a/sympy/utilities/lambdify.py b/sympy/utilities/lambdify.py
+--- a/sympy/utilities/lambdify.py
++++ b/sympy/utilities/lambdify.py
+@@ -700,14 +700,13 @@ def _is_safe_ident(cls, ident):
+             return isinstance(ident, str) and cls._safe_ident_re.match(ident) \
+                 and not (keyword.iskeyword(ident) or ident == 'None')
+ 
+-
+     def _preprocess(self, args, expr):
+         """Preprocess args, expr to replace arguments that do not map
+         to valid Python identifiers.
+ 
+         Returns string form of args, and updated expr.
+         """
+-        from sympy import Dummy, Symbol, Function, flatten
++        from sympy import Dummy, Symbol, MatrixSymbol, Function, flatten
+         from sympy.matrices import DeferredVector
+ 
+         dummify = self._dummify
+@@ -725,7 +724,7 @@ def _preprocess(self, args, expr):
+                 argstrs.append(nested_argstrs)
+             elif isinstance(arg, DeferredVector):
+                 argstrs.append(str(arg))
+-            elif isinstance(arg, Symbol):
++            elif isinstance(arg, Symbol) or isinstance(arg, MatrixSymbol):
+                 argrep = self._argrepr(arg)
+ 
+                 if dummify or not self._is_safe_ident(argrep):
+@@ -739,7 +738,14 @@ def _preprocess(self, args, expr):
+                 argstrs.append(self._argrepr(dummy))
+                 expr = self._subexpr(expr, {arg: dummy})
+             else:
+-                argstrs.append(str(arg))
++                argrep = self._argrepr(arg)
++
++                if dummify:
++                    dummy = Dummy()
++                    argstrs.append(self._argrepr(dummy))
++                    expr = self._subexpr(expr, {arg: dummy})
++                else:
++                    argstrs.append(str(arg))
+ 
+         return argstrs, expr
+ 
+
+----------------------------------------
+
+Entry 23:
+Instance ID: sympy__sympy-22005
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sympy/solvers/polysys.py b/sympy/solvers/polysys.py
+--- a/sympy/solvers/polysys.py
++++ b/sympy/solvers/polysys.py
+@@ -240,7 +240,7 @@
+ 
+         univariate = list(filter(_is_univariate, basis))
+ 
+-        if len(univariate) == 1:
++        if len(univariate) == 1 and len(gens) == 1:
+             f = univariate.pop()
+         else:
+             raise NotImplementedError(filldedent('''
+----------------------------------------
+
+Expected Patch:
+diff --git a/sympy/solvers/polysys.py b/sympy/solvers/polysys.py
+--- a/sympy/solvers/polysys.py
++++ b/sympy/solvers/polysys.py
+@@ -240,6 +240,12 @@ def _solve_reduced_system(system, gens, entry=False):
+ 
+         univariate = list(filter(_is_univariate, basis))
+ 
++        if len(basis) < len(gens):
++            raise NotImplementedError(filldedent('''
++                only zero-dimensional systems supported
++                (finite number of solutions)
++                '''))
++
+         if len(univariate) == 1:
+             f = univariate.pop()
+         else:
+
+----------------------------------------
+
+Entry 24:
+Instance ID: sympy__sympy-24066
+Model Name/Path: your-model-name
+Model Patch:
+diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py
+--- a/sympy/physics/units/unitsystem.py
++++ b/sympy/physics/units/unitsystem.py
+@@ -192,8 +192,9 @@
+         elif isinstance(expr, Function):
+             fds = [self._collect_factor_and_dimension(
+                 arg) for arg in expr.args]
++            dims = [Dimension(1) if self.get_dimension_system().is_dimensionless(d[1]) else d[1] for d in fds]
+             return (expr.func(*(f[0] for f in fds)),
+-                    *(d[1] for d in fds))
++                    *dims)
+         elif isinstance(expr, Dimension):
+             return S.One, expr
+         else:
+----------------------------------------
+
+Expected Patch:
+diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py
+--- a/sympy/physics/units/unitsystem.py
++++ b/sympy/physics/units/unitsystem.py
+@@ -190,10 +190,9 @@ def _collect_factor_and_dimension(self, expr):
+                 dim /= idim**count
+             return factor, dim
+         elif isinstance(expr, Function):
+-            fds = [self._collect_factor_and_dimension(
+-                arg) for arg in expr.args]
+-            return (expr.func(*(f[0] for f in fds)),
+-                    *(d[1] for d in fds))
++            fds = [self._collect_factor_and_dimension(arg) for arg in expr.args]
++            dims = [Dimension(1) if self.get_dimension_system().is_dimensionless(d[1]) else d[1] for d in fds]
++            return (expr.func(*(f[0] for f in fds)), *dims)
+         elif isinstance(expr, Dimension):
+             return S.One, expr
+         else:
+
+----------------------------------------
+

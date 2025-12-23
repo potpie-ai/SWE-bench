@@ -1,0 +1,13 @@
+diff --git a/sympy/sets/sets.py b/sympy/sets/sets.py
+--- a/sympy/sets/sets.py
++++ b/sympy/sets/sets.py
+@@ -1991,6 +1991,10 @@
+     if S.EmptySet in args:
+         return S.EmptySet
+ 
++
++    # Remove duplicates
++    args = list(ordered(set(args), Set._infimum_key))
++
+     # Handle Finite sets
+     rv = Intersection._handle_finite_sets(args)

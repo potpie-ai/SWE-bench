@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-13471",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "3546ac7ed78e1780c1a76929864bb33330055740",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/core/numbers.py b/sympy/core/numbers.py\n--- a/sympy/core/numbers.py\n+++ b/sympy/core/numbers.py\n@@ -1042,6 +1042,11 @@ def __new__(cls, num, dps=None, prec=None, precision=None):\n                 # it's a hexadecimal (coming from a pickled object)\n                 # assume that it is in standard form\n                 num = list(num)\n+                # If we're loading an object pickled in Python 2 into\n+                # Python 3, we may need to strip a tailing 'L' because\n+                # of a shim for int on Python 3, see issue #13470.\n+                if num[1].endswith('L'):\n+                    num[1] = num[1][:-1]\n                 num[1] = long(num[1], 16)\n                 _mpf_ = tuple(num)\n             else:\n",
+  "hint": ""
+}

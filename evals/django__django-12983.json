@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12983",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "3bc4240d979812bd11365ede04c028ea13fdc8c6",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "26:42",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/utils/text.py b/django/utils/text.py\n--- a/django/utils/text.py\n+++ b/django/utils/text.py\n@@ -393,17 +393,18 @@ def unescape_string_literal(s):\n @keep_lazy_text\n def slugify(value, allow_unicode=False):\n     \"\"\"\n-    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.\n-    Remove characters that aren't alphanumerics, underscores, or hyphens.\n-    Convert to lowercase. Also strip leading and trailing whitespace.\n+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated\n+    dashes to single dashes. Remove characters that aren't alphanumerics,\n+    underscores, or hyphens. Convert to lowercase. Also strip leading and\n+    trailing whitespace, dashes, and underscores.\n     \"\"\"\n     value = str(value)\n     if allow_unicode:\n         value = unicodedata.normalize('NFKC', value)\n     else:\n         value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')\n-    value = re.sub(r'[^\\w\\s-]', '', value.lower()).strip()\n-    return re.sub(r'[-\\s]+', '-', value)\n+    value = re.sub(r'[^\\w\\s-]', '', value.lower())\n+    return re.sub(r'[-\\s]+', '-', value).strip('-_')\n \n \n def camel_case_to_spaces(value):\n",
+  "hint": "The current version of the patch converts all underscores to dashes which (as discussed on the PR) isn't an obviously desired change. A discussion is needed to see if there's consensus about that change."
+}

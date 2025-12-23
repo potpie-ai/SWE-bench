@@ -1,0 +1,16 @@
+diff --git a/django/utils/numberformat.py b/django/utils/numberformat.py
+--- a/django/utils/numberformat.py
++++ b/django/utils/numberformat.py
+@@ -66,11 +66,11 @@
+             return "{}e{}".format(coefficient, exponent)
+         else:
+             str_number = "{:f}".format(number)
+     else:
+         str_number = str(number)
+-    if str_number[0] == "-":
++    if str_number and str_number[0] == "-":
+         sign = "-"
+         str_number = str_number[1:]
+     # decimal part
+     if "." in str_number:
+         int_part, dec_part = str_number.split(".")

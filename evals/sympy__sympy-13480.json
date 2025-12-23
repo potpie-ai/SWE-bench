@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-13480",
+  "model_patch": "",
+  "repo": "sympy/sympy",
+  "commit_id": "f57fe3f4b3f2cab225749e1b3b38ae1bf80b62f0",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sympy/functions/elementary/hyperbolic.py b/sympy/functions/elementary/hyperbolic.py\n--- a/sympy/functions/elementary/hyperbolic.py\n+++ b/sympy/functions/elementary/hyperbolic.py\n@@ -587,7 +587,7 @@ def eval(cls, arg):\n                 x, m = _peeloff_ipi(arg)\n                 if m:\n                     cothm = coth(m)\n-                    if cotm is S.ComplexInfinity:\n+                    if cothm is S.ComplexInfinity:\n                         return coth(x)\n                     else: # cothm == 0\n                         return tanh(x)\n",
+  "hint": "There is a typo on [line 590](https://github.com/sympy/sympy/blob/master/sympy/functions/elementary/hyperbolic.py#L590): `cotm` should be `cothm`."
+}

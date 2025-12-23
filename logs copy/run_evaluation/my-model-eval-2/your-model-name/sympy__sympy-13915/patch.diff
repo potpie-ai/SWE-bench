@@ -1,0 +1,18 @@
+diff --git a/sympy/core/mul.py b/sympy/core/mul.py
+--- a/sympy/core/mul.py
++++ b/sympy/core/mul.py
+@@ -1408,7 +1408,13 @@
+         n, d = fraction(self)
+         self2 = self
+         if d is not S.One:
+-            self2 = n._subs(old, new)/d._subs(old, new)
++            n2 = n._subs(old, new)
++            d2 = d._subs(old, new)
++            # If both numerator and denominator contain zoo (ComplexInfinity),
++            # the result is indeterminate (NaN), since zoo/zoo = NaN
++            if n2.has(S.ComplexInfinity) and d2.has(S.ComplexInfinity):
++                return S.NaN
++            self2 = n2/d2
+             if not self2.is_Mul:
+                 return self2._subs(old, new)
+             if self2 != self:

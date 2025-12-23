@@ -1,0 +1,139 @@
+diff --git a/test_struct_path_attributes.py b/test_struct_path_attributes.py
+--- a/test_struct_path_attributes.py
++++ b/test_struct_path_attributes.py
+@@ -0,0 +1,48 @@
++#!/usr/bin/env python3
++"""
++Test script to investigate struct.Struct vs pathlib.Path attributes
++"""
++import struct
++import pathlib
++
++print("=" * 60)
++print("Testing struct.Struct")
++print("=" * 60)
++print(f"Type: {type(struct.Struct)}")
++print(f"__module__: {getattr(struct.Struct, '__module__', 'NOT FOUND')}")
++print(f"__qualname__: {getattr(struct.Struct, '__qualname__', 'NOT FOUND')}")
++print(f"__name__: {getattr(struct.Struct, '__name__', 'NOT FOUND')}")
++print(f"Has __qualname__: {hasattr(struct.Struct, '__qualname__')}")
++print()
++
++print("=" * 60)
++print("Testing pathlib.Path")
++print("=" * 60)
++print(f"Type: {type(pathlib.Path)}")
++print(f"__module__: {getattr(pathlib.Path, '__module__', 'NOT FOUND')}")
++print(f"__qualname__: {getattr(pathlib.Path, '__qualname__', 'NOT FOUND')}")
++print(f"__name__: {getattr(pathlib.Path, '__name__', 'NOT FOUND')}")
++print(f"Has __qualname__: {hasattr(pathlib.Path, '__qualname__')}")
++print()
++
++# Test what stringify() would produce
++print("=" * 60)
++print("Simulating stringify() logic")
++print("=" * 60)
++
++def simulate_stringify(annotation):
++    """Simulate the stringify logic from sphinx/util/typing.py"""
++    module = getattr(annotation, '__module__', None)
++    
++    # Check builtins case (lines 303-305)
++    if module == 'builtins' and hasattr(annotation, '__qualname__'):
++        return f"BUILTINS PATH: {annotation.__qualname__}"
++    
++    # Check py37+ path (lines 327-328)
++    if hasattr(annotation, '__qualname__'):
++        return f"QUALIFIED PATH: {module}.{annotation.__qualname__}"
++    else:
++        return f"NO QUALNAME PATH: repr={repr(annotation)}"
++
++print(f"struct.Struct: {simulate_stringify(struct.Struct)}")
++print(f"pathlib.Path: {simulate_stringify(pathlib.Path)}")
+
+diff --git a/test_repr_output.py b/test_repr_output.py
+--- a/test_repr_output.py
++++ b/test_repr_output.py
+@@ -0,0 +1,13 @@
++#!/usr/bin/env python3
++"""
++Test what repr() returns for struct.Struct and pathlib.Path
++"""
++import struct
++import pathlib
++
++print("repr(struct.Struct):", repr(struct.Struct))
++print("repr(pathlib.Path):", repr(pathlib.Path))
++
++# Also test str()
++print("str(struct.Struct):", str(struct.Struct))
++print("str(pathlib.Path):", str(pathlib.Path))
+
+diff --git a/sphinx/util/typing.py b/sphinx/util/typing.py
+--- a/sphinx/util/typing.py
++++ b/sphinx/util/typing.py
+@@ -144,11 +144,11 @@
+         return text
+     elif hasattr(cls, '__qualname__'):
+         if cls.__module__ == 'typing':
+             return ':class:`%s`' % cls.__qualname__
+         else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
++            return ':class:`%s.%s`' % (cls.__module__, getattr(cls, '__name__', cls.__qualname__))
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`%s`' % cls._name
+         else:
+@@ -172,11 +172,11 @@
+         elif getattr(cls, '__origin__', None):
+             qualname = stringify(cls.__origin__)  # ex. Union
+         else:
+             qualname = repr(cls).replace('typing.', '')
+     elif hasattr(cls, '__qualname__'):
+-        qualname = '%s.%s' % (module, cls.__qualname__)
++        qualname = '%s.%s' % (module, getattr(cls, '__name__', cls.__qualname__))
+     else:
+         qualname = repr(cls)
+ 
+     if (isinstance(cls, typing.TupleMeta) and  # type: ignore
+             not hasattr(cls, '__tuple_params__')):  # for Python 3.6
+@@ -261,11 +261,11 @@
+             return ':class:`%s`' % qualname
+     elif hasattr(cls, '__qualname__'):
+         if cls.__module__ == 'typing':
+             return ':class:`%s`' % cls.__qualname__
+         else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
++            return ':class:`%s.%s`' % (cls.__module__, getattr(cls, '__name__', cls.__qualname__))
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`%s`' % cls._name
+         else:
+@@ -323,11 +323,11 @@
+         elif getattr(annotation, '__forward_arg__', None):
+             qualname = annotation.__forward_arg__
+         else:
+             qualname = stringify(annotation.__origin__)  # ex. Union
+     elif hasattr(annotation, '__qualname__'):
+-        qualname = '%s.%s' % (module, annotation.__qualname__)
++        qualname = '%s.%s' % (module, getattr(annotation, '__name__', annotation.__qualname__))
+     elif hasattr(annotation, '__origin__'):
+         # instantiated generic provided by a user
+         qualname = stringify(annotation.__origin__)
+     else:
+         # we weren't able to extract the base type, appending arguments would
+@@ -377,11 +377,11 @@
+         elif getattr(annotation, '__origin__', None):
+             qualname = stringify(annotation.__origin__)  # ex. Union
+         else:
+             qualname = repr(annotation).replace('typing.', '')
+     elif hasattr(annotation, '__qualname__'):
+-        qualname = '%s.%s' % (module, annotation.__qualname__)
++        qualname = '%s.%s' % (module, getattr(annotation, '__name__', annotation.__qualname__))
+     else:
+         qualname = repr(annotation)
+ 
+     if (isinstance(annotation, typing.TupleMeta) and  # type: ignore
+             not hasattr(annotation, '__tuple_params__')):  # for Python 3.6

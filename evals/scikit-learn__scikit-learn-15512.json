@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-15512",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "b8a4da8baa1137f173e7035f104067c7d2ffde22",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/cluster/_affinity_propagation.py b/sklearn/cluster/_affinity_propagation.py\n--- a/sklearn/cluster/_affinity_propagation.py\n+++ b/sklearn/cluster/_affinity_propagation.py\n@@ -194,17 +194,19 @@ def affinity_propagation(S, preference=None, convergence_iter=15, max_iter=200,\n             unconverged = (np.sum((se == convergence_iter) + (se == 0))\n                            != n_samples)\n             if (not unconverged and (K > 0)) or (it == max_iter):\n+                never_converged = False\n                 if verbose:\n                     print(\"Converged after %d iterations.\" % it)\n                 break\n     else:\n+        never_converged = True\n         if verbose:\n             print(\"Did not converge\")\n \n     I = np.flatnonzero(E)\n     K = I.size  # Identify exemplars\n \n-    if K > 0:\n+    if K > 0 and not never_converged:\n         c = np.argmax(S[:, I], axis=1)\n         c[I] = np.arange(K)  # Identify clusters\n         # Refine the final set of exemplars and clusters and return results\n@@ -408,6 +410,7 @@ def predict(self, X):\n             Cluster labels.\n         \"\"\"\n         check_is_fitted(self)\n+        X = check_array(X)\n         if not hasattr(self, \"cluster_centers_\"):\n             raise ValueError(\"Predict method is not supported when \"\n                              \"affinity='precomputed'.\")\n",
+  "hint": "@JenniferHemmerich this affinity propagation code is not often updated. If you have time to improve its documentation and fix corner cases like the one you report please send us PR. I'll try to find the time to review the changes. thanks\nWorking on this for the wmlds scikit learn sprint (pair programming with @akeshavan)"
+}

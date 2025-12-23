@@ -1,0 +1,28 @@
+diff --git a/requests/utils.py b/requests/utils.py
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -360,11 +360,23 @@
+     """Stream decodes a iterator."""
+ 
+     if r.encoding is None:
++        encoding = r.apparent_encoding
++    else:
++        encoding = r.encoding
++
++    if encoding is None:
+         for item in iterator:
+             yield item
+         return
+ 
+-    decoder = codecs.getincrementaldecoder(r.encoding)(errors='replace')
++    try:
++        decoder = codecs.getincrementaldecoder(encoding)(errors='replace')
++    except LookupError:
++        # Encoding was not found, yield raw bytes
++        for item in iterator:
++            yield item
++        return
++
+     for chunk in iterator:
+         rv = decoder.decode(chunk)
+         if rv:

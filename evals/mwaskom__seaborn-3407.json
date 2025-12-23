@@ -1,0 +1,12 @@
+{
+  "instance_id": "mwaskom__seaborn-3407",
+  "model_patch": "",
+  "repo": "mwaskom/seaborn",
+  "commit_id": "515286e02be3e4c0ff2ef4addb34a53c4a676ee4",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/seaborn/axisgrid.py b/seaborn/axisgrid.py\n--- a/seaborn/axisgrid.py\n+++ b/seaborn/axisgrid.py\n@@ -1472,8 +1472,8 @@ def map_diag(self, func, **kwargs):\n                 for ax in diag_axes[1:]:\n                     share_axis(diag_axes[0], ax, \"y\")\n \n-            self.diag_vars = np.array(diag_vars, np.object_)\n-            self.diag_axes = np.array(diag_axes, np.object_)\n+            self.diag_vars = diag_vars\n+            self.diag_axes = diag_axes\n \n         if \"hue\" not in signature(func).parameters:\n             return self._map_diag_iter_hue(func, **kwargs)\n",
+  "hint": ""
+}

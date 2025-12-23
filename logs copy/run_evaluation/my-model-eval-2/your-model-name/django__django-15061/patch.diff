@@ -1,0 +1,24 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -847,13 +847,17 @@
+             subwidgets.append(widget.get_context(widget_name, widget_value, widget_attrs)['widget'])
+         context['widget']['subwidgets'] = subwidgets
+         return context
+ 
+     def id_for_label(self, id_):
+-        if id_:
+-            id_ += '_0'
+-        return id_
++        """
++        Don't include for="..." in <label> when using a MultiWidget because
++        clicking such a label would only focus the first subwidget. Improve
++        accessibility by omitting the label's for attribute.
++        """
++        return ''
++
+ 
+     def value_from_datadict(self, data, files, name):
+         return [
+             widget.value_from_datadict(data, files, name + widget_name)
+             for widget_name, widget in zip(self.widgets_names, self.widgets)

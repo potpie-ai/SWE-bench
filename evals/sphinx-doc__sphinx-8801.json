@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-8801",
+  "model_patch": "",
+  "repo": "sphinx-doc/sphinx",
+  "commit_id": "7ca279e33aebb60168d35e6be4ed059f4a68f2c1",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sphinx/ext/autodoc/importer.py b/sphinx/ext/autodoc/importer.py\n--- a/sphinx/ext/autodoc/importer.py\n+++ b/sphinx/ext/autodoc/importer.py\n@@ -294,24 +294,35 @@ def get_class_members(subject: Any, objpath: List[str], attrgetter: Callable\n \n     try:\n         for cls in getmro(subject):\n+            try:\n+                modname = safe_getattr(cls, '__module__')\n+                qualname = safe_getattr(cls, '__qualname__')\n+                analyzer = ModuleAnalyzer.for_module(modname)\n+                analyzer.analyze()\n+            except AttributeError:\n+                qualname = None\n+                analyzer = None\n+            except PycodeError:\n+                analyzer = None\n+\n             # annotation only member (ex. attr: int)\n             for name in getannotations(cls):\n                 name = unmangle(cls, name)\n                 if name and name not in members:\n-                    members[name] = ObjectMember(name, INSTANCEATTR, class_=cls)\n+                    if analyzer and (qualname, name) in analyzer.attr_docs:\n+                        docstring = '\\n'.join(analyzer.attr_docs[qualname, name])\n+                    else:\n+                        docstring = None\n+\n+                    members[name] = ObjectMember(name, INSTANCEATTR, class_=cls,\n+                                                 docstring=docstring)\n \n             # append instance attributes (cf. self.attr1) if analyzer knows\n-            try:\n-                modname = safe_getattr(cls, '__module__')\n-                qualname = safe_getattr(cls, '__qualname__')\n-                analyzer = ModuleAnalyzer.for_module(modname)\n-                analyzer.analyze()\n+            if analyzer:\n                 for (ns, name), docstring in analyzer.attr_docs.items():\n                     if ns == qualname and name not in members:\n                         members[name] = ObjectMember(name, INSTANCEATTR, class_=cls,\n                                                      docstring='\\n'.join(docstring))\n-            except (AttributeError, PycodeError):\n-                pass\n     except AttributeError:\n         pass\n \n",
+  "hint": ""
+}

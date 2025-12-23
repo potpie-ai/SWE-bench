@@ -1,0 +1,34 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,10 +125,26 @@
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
+-        return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+-            {"import %s" % module},
+-        )
++        v_string, v_imports = "", {"import %s" % module}
++
++        if isinstance(self.value, enum.Flag) and self.value.name not in enum_class.__members__:
++            # Handle combination of flags (e.g., re.UNICODE | re.IGNORECASE)
++            # Iterate over combined flag to get individual flags
++            members = list(self.value)
++            if members:
++                v_string = " | ".join(
++                    [
++                        "%s.%s[%r]" % (module, enum_class.__qualname__, m.name)
++                        for m in members
++                    ]
++                )
++            else:
++                # Zero value - use the integer value directly as constructor argument
++                v_string = "%s.%s(%r)" % (module, enum_class.__qualname__, self.value.value)
++        else:
++            v_string = "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name)
++
++        return v_string, v_imports
+ 
+ 
+ class FloatSerializer(BaseSimpleSerializer):

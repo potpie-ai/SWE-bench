@@ -1,0 +1,389 @@
+diff --git a/test_q_deepcopy_fix.py b/test_q_deepcopy_fix.py
+--- a/test_q_deepcopy_fix.py
++++ b/test_q_deepcopy_fix.py
+@@ -0,0 +1,176 @@
++"""
++Test script to verify the Q object deepcopy fix for non-pickleable dict view objects.
++
++This tests the fix for the issue where combining Q objects with | or & operations
++fails when one Q object contains dict_keys, dict_values, or dict_items objects.
++"""
++import copy
++import sys
++import os
++
++# Add Django project root to path
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++
++# Set up Django settings
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.test_sqlite')
++
++import django
++django.setup()
++
++from django.db.models import Q
++
++
++def test_case(description, test_func):
++    """Helper function to run a test case and report results."""
++    print(f"\n{'=' * 70}")
++    print(f"TEST: {description}")
++    print('=' * 70)
++    try:
++        result = test_func()
++        print(f"✓ PASSED")
++        if result:
++            print(f"  Result: {result}")
++        return True
++    except Exception as e:
++        print(f"✗ FAILED: {type(e).__name__}: {e}")
++        import traceback
++        traceback.print_exc()
++        return False
++
++
++def main():
++    """Run all test cases."""
++    results = []
++    
++    # Test 1: Q(x__in={}.keys()) alone - should work (baseline)
++    results.append(test_case(
++        "Q(x__in={}.keys()) alone - baseline test",
++        lambda: Q(x__in={}.keys())
++    ))
++    
++    # Test 2: Q() | Q(x__in={}.keys()) - main issue case
++    results.append(test_case(
++        "Q() | Q(x__in={}.keys()) - empty Q first",
++        lambda: Q() | Q(x__in={}.keys())
++    ))
++    
++    # Test 3: Q(x__in={}.keys()) | Q() - main issue case (reversed)
++    results.append(test_case(
++        "Q(x__in={}.keys()) | Q() - empty Q second",
++        lambda: Q(x__in={}.keys()) | Q()
++    ))
++    
++    # Test 4: Q(a=1) | Q(x__in={}.keys()) - should work
++    results.append(test_case(
++        "Q(a=1) | Q(x__in={}.keys()) - non-empty Q objects",
++        lambda: Q(a=1) | Q(x__in={}.keys())
++    ))
++    
++    # Test 5: Nested Q objects: Q(Q(x__in={}.keys())) | Q()
++    results.append(test_case(
++        "Q(Q(x__in={}.keys())) | Q() - nested Q with dict_keys",
++        lambda: Q(Q(x__in={}.keys())) | Q()
++    ))
++    
++    # Test 6: Multiple non-pickleable values
++    results.append(test_case(
++        "Q(a__in={1}.keys(), b__in={2}.values()) - multiple dict views",
++        lambda: Q(a__in={1: 'x'}.keys(), b__in={2: 'y'}.values())
++    ))
++    
++    # Test 7: dict_values
++    results.append(test_case(
++        "Q() | Q(x__in={1: 'a'}.values()) - dict_values",
++        lambda: Q() | Q(x__in={1: 'a'}.values())
++    ))
++    
++    # Test 8: dict_items
++    results.append(test_case(
++        "Q() | Q(x__in={1: 'a'}.items()) - dict_items",
++        lambda: Q() | Q(x__in={1: 'a'}.items())
++    ))
++    
++    # Test 9: AND operation with dict_keys
++    results.append(test_case(
++        "Q() & Q(x__in={}.keys()) - AND with dict_keys",
++        lambda: Q() & Q(x__in={}.keys())
++    ))
++    
++    # Test 10: Direct deepcopy of Q with dict_keys
++    results.append(test_case(
++        "copy.deepcopy(Q(x__in={}.keys())) - direct deepcopy",
++        lambda: copy.deepcopy(Q(x__in={}.keys()))
++    ))
++    
++    # Test 11: Complex nested case
++    results.append(test_case(
++        "(Q(a=1) | Q(b__in={2}.keys())) & Q(c=3) - complex combination",
++        lambda: (Q(a=1) | Q(b__in={2: 'x'}.keys())) & Q(c=3)
++    ))
++    
++    # Test 12: Verify the conversion actually happens
++    def test_conversion():
++        q1 = Q(x__in={1: 'a'}.keys())
++        q2 = copy.deepcopy(q1)
++        # Check that the value is now a list
++        child = q2.children[0]
++        assert isinstance(child, tuple), "Child should be a tuple"
++        key, value = child
++        assert key == 'x__in', f"Key should be 'x__in', got {key}"
++        assert isinstance(value, list), f"Value should be a list after deepcopy, got {type(value)}"
++        assert value == [1], f"Value should be [1], got {value}"
++        return "dict_keys converted to list successfully"
++    
++    results.append(test_case(
++        "Verify dict_keys is converted to list during deepcopy",
++        test_conversion
++    ))
++    
++    # Test 13: Verify dict_values conversion
++    def test_dict_values_conversion():
++        q1 = Q(x__in={1: 'a', 2: 'b'}.values())
++        q2 = copy.deepcopy(q1)
++        child = q2.children[0]
++        key, value = child
++        assert isinstance(value, list), f"Value should be a list, got {type(value)}"
++        assert set(value) == {'a', 'b'}, f"Value should be ['a', 'b'], got {value}"
++        return "dict_values converted to list successfully"
++    
++    results.append(test_case(
++        "Verify dict_values is converted to list during deepcopy",
++        test_dict_values_conversion
++    ))
++    
++    # Test 14: Verify dict_items conversion
++    def test_dict_items_conversion():
++        q1 = Q(x__in={1: 'a'}.items())
++        q2 = copy.deepcopy(q1)
++        child = q2.children[0]
++        key, value = child
++        assert isinstance(value, list), f"Value should be a list, got {type(value)}"
++        assert value == [(1, 'a')], f"Value should be [(1, 'a')], got {value}"
++        return "dict_items converted to list successfully"
++    
++    results.append(test_case(
++        "Verify dict_items is converted to list during deepcopy",
++        test_dict_items_conversion
++    ))
++    
++    # Print summary
++    print(f"\n{'=' * 70}")
++    print("SUMMARY")
++    print('=' * 70)
++    passed = sum(results)
++    total = len(results)
++    print(f"Passed: {passed}/{total}")
++    
++    if passed == total:
++        print("\n✓ ALL TESTS PASSED!")
++        return 0
++    else:
++        print(f"\n✗ {total - passed} TEST(S) FAILED")
++        return 1
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+
+diff --git a/test_validation.py b/test_validation.py
+--- a/test_validation.py
++++ b/test_validation.py
+@@ -0,0 +1,157 @@
++"""
++Validation script for Q.__init__ fix - testing all 10 edge cases
++"""
++import copy
++import pickle
++import sys
++import os
++
++# Add Django project root to path
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++
++# Set up Django settings
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.test_sqlite')
++
++import django
++django.setup()
++
++from django.db.models import Q
++
++def test_case(num, description, test_func):
++    """Run a test case and report results"""
++    try:
++        test_func()
++        print(f"✅ Case {num}: {description} - PASSED")
++        return True
++    except Exception as e:
++        print(f"❌ Case {num}: {description} - FAILED")
++        print(f"   Error: {type(e).__name__}: {e}")
++        import traceback
++        traceback.print_exc()
++        return False
++
++def case1():
++    """Q(x__in={}.keys()) | Q() - dict_keys with OR"""
++    q = Q(x__in={}.keys()) | Q()
++    copy.deepcopy(q)  # Should not raise
++    pickle.dumps(q)   # Should not raise
++
++def case2():
++    """Q(x__in={}.values()) - dict_values"""
++    q = Q(x__in={}.values())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case3():
++    """Q(x__in={}.items()) - dict_items"""
++    q = Q(x__in={}.items())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case4():
++    """Q() & Q(x__in={}.keys()) - dict_keys with AND"""
++    q = Q() & Q(x__in={}.keys())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case5():
++    """Q(a=1) | Q(x__in={}.keys()) - combining with regular Q"""
++    q = Q(a=1) | Q(x__in={}.keys())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case6():
++    """Q(Q(x__in={}.keys())) - passing as arg (nested)"""
++    inner = Q(x__in={}.keys())
++    q = Q(inner)
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case7():
++    """Q(('x__in', {}.keys())) - passing as tuple arg"""
++    q = Q(('x__in', {}.keys()))
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case8():
++    """Multiple dict views: Q(a__in={}.keys(), b__in={}.values())"""
++    q = Q(a__in={}.keys(), b__in={}.values())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def case9():
++    """Direct pickle: pickle.dumps(Q(x__in={}.keys()))"""
++    q = Q(x__in={}.keys())
++    pickle.dumps(q)
++    copy.deepcopy(q)
++
++def case10():
++    """Negation: ~Q(x__in={}.keys())"""
++    q = ~Q(x__in={}.keys())
++    copy.deepcopy(q)
++    pickle.dumps(q)
++
++def main():
++    print("="*60)
++    print("Validating Q.__init__ fix for dict views")
++    print("="*60)
++    print()
++    
++    test_cases = [
++        (1, "Q(x__in={}.keys()) | Q()", case1),
++        (2, "Q(x__in={}.values())", case2),
++        (3, "Q(x__in={}.items())", case3),
++        (4, "Q() & Q(x__in={}.keys())", case4),
++        (5, "Q(a=1) | Q(x__in={}.keys())", case5),
++        (6, "Q(Q(x__in={}.keys()))", case6),
++        (7, "Q(('x__in', {}.keys()))", case7),
++        (8, "Q(a__in={}.keys(), b__in={}.values())", case8),
++        (9, "pickle.dumps(Q(x__in={}.keys()))", case9),
++        (10, "~Q(x__in={}.keys())", case10),
++    ]
++    
++    results = []
++    for num, desc, func in test_cases:
++        results.append(test_case(num, desc, func))
++        print()
++    
++    print("="*60)
++    print(f"Results: {sum(results)}/{len(results)} tests passed")
++    print("="*60)
++    
++    # Additional validation: check that dict_keys are actually converted
++    print("\n" + "="*60)
++    print("Validation: Checking actual conversion")
++    print("="*60)
++    
++    q1 = Q(x__in={1, 2, 3}.keys())
++    print(f"Q(x__in={{1, 2, 3}}.keys()).children = {q1.children}")
++    print(f"Type of value: {type(q1.children[0][1])}")
++    assert isinstance(q1.children[0][1], list), "Should be converted to list"
++    print("✅ dict_keys converted to list")
++    
++    q2 = Q(x__in={1: 'a', 2: 'b'}.values())
++    print(f"\nQ(x__in={{1: 'a', 2: 'b'}}.values()).children = {q2.children}")
++    print(f"Type of value: {type(q2.children[0][1])}")
++    assert isinstance(q2.children[0][1], list), "Should be converted to list"
++    print("✅ dict_values converted to list")
++    
++    q3 = Q(x__in={1: 'a', 2: 'b'}.items())
++    print(f"\nQ(x__in={{1: 'a', 2: 'b'}}.items()).children = {q3.children}")
++    print(f"Type of value: {type(q3.children[0][1])}")
++    assert isinstance(q3.children[0][1], list), "Should be converted to list"
++    print("✅ dict_items converted to list")
++    
++    # Test tuple arg format
++    q4 = Q(('x__in', {1, 2, 3}.keys()))
++    print(f"\nQ(('x__in', {{1, 2, 3}}.keys())).children = {q4.children}")
++    print(f"Type of value: {type(q4.children[0][1])}")
++    assert isinstance(q4.children[0][1], list), "Should be converted to list"
++    print("✅ dict_keys in tuple arg converted to list")
++    
++    print("\n" + "="*60)
++    print("All validations completed successfully!")
++    print("="*60)
++
++if __name__ == '__main__':
++    main()
+
+diff --git a/django/db/models/query_utils.py b/django/db/models/query_utils.py
+--- a/django/db/models/query_utils.py
++++ b/django/db/models/query_utils.py
+@@ -36,11 +36,42 @@
+     OR = 'OR'
+     default = AND
+     conditional = True
+ 
+     def __init__(self, *args, _connector=None, _negated=False, **kwargs):
+-        super().__init__(children=[*args, *sorted(kwargs.items())], connector=_connector, negated=_negated)
++        # Convert non-pickleable dict view objects to lists to avoid
++        # "TypeError: cannot pickle 'dict_keys' object" when Q objects
++        # are combined using operators like | or &, which use copy.deepcopy()
++        def _convert_value(value):
++            """Convert dict views and other non-pickleable types to pickleable equivalents."""
++            # Check for dict view types (dict_keys, dict_values, dict_items)
++            value_type = type(value).__name__
++            if value_type in ('dict_keys', 'dict_values', 'dict_items'):
++                return list(value)
++            return value
++        
++        # Process args - convert tuples with non-pickleable values
++        converted_args = []
++        for arg in args:
++            if isinstance(arg, tuple) and len(arg) == 2:
++                key, value = arg
++                converted_args.append((key, _convert_value(value)))
++            else:
++                converted_args.append(arg)
++        
++        # Process kwargs - convert non-pickleable values
++        converted_kwargs = {
++            key: _convert_value(value)
++            for key, value in kwargs.items()
++        }
++        
++        super().__init__(
++            children=[*converted_args, *sorted(converted_kwargs.items())],
++            connector=_connector,
++            negated=_negated
++        )
++
+ 
+     def _combine(self, other, conn):
+         if not isinstance(other, Q):
+             raise TypeError(other)

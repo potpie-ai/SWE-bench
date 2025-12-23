@@ -1,0 +1,17 @@
+diff --git a/sklearn/preprocessing/_encoders.py b/sklearn/preprocessing/_encoders.py
+--- a/sklearn/preprocessing/_encoders.py
++++ b/sklearn/preprocessing/_encoders.py
+@@ -110,7 +110,12 @@
+                     # continue `The rows are marked `X_mask` and will be
+                     # removed later.
+                     X_mask[:, i] = valid_mask
+-                    Xi = Xi.copy()
++                    # cast Xi into object dtype to handle different
++                    # lengths of numpy strings
++                    if X.dtype.kind in ('U', 'S'):
++                        Xi = Xi.astype(object)
++                    else:
++                        Xi = Xi.copy()
+                     Xi[~valid_mask] = self.categories_[i][0]
+             _, encoded = _encode(Xi, self.categories_[i], encode=True)
+             X_int[:, i] = encoded

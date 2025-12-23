@@ -1,0 +1,30 @@
+diff --git a/django/test/testcases.py b/django/test/testcases.py
+--- a/django/test/testcases.py
++++ b/django/test/testcases.py
+@@ -1079,7 +1079,7 @@
+     def _enter_atomics(cls):
+         """Open atomic blocks for multiple databases."""
+         atomics = {}
+-        for db_name in cls._databases_names():
++        for db_name in cls._databases_names(include_mirrors=False):
+             atomics[db_name] = transaction.atomic(using=db_name)
+             atomics[db_name].__enter__()
+         return atomics
+@@ -1087,7 +1087,7 @@
+     @classmethod
+     def _rollback_atomics(cls, atomics):
+         """Rollback atomic blocks opened by the previous method."""
+-        for db_name in reversed(cls._databases_names()):
++        for db_name in reversed(cls._databases_names(include_mirrors=False)):
+             transaction.set_rollback(True, using=db_name)
+             atomics[db_name].__exit__(None, None, None)
+ 
+@@ -1149,7 +1149,7 @@
+         if not self._databases_support_transactions():
+             return super()._fixture_teardown()
+         try:
+-            for db_name in reversed(self._databases_names()):
++            for db_name in reversed(self._databases_names(include_mirrors=False)):
+                 if self._should_check_constraints(connections[db_name]):
+                     connections[db_name].check_constraints()
+         finally:

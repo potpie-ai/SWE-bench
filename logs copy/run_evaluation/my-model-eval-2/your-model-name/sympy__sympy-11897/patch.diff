@@ -1,0 +1,16 @@
+diff --git a/sympy/simplify/radsimp.py b/sympy/simplify/radsimp.py
+--- a/sympy/simplify/radsimp.py
++++ b/sympy/simplify/radsimp.py
+@@ -956,11 +956,11 @@
+             b, ex = term.as_base_exp()
+             if ex.is_negative:
+                 if ex is S.NegativeOne:
+                     denom.append(b)
+                 elif exact:
+-                    if ex.is_constant():
++                    if not ex.free_symbols:
+                         denom.append(Pow(b, -ex))
+                     else:
+                         numer.append(term)
+                 else:
+                     denom.append(Pow(b, -ex))

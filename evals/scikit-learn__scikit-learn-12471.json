@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-12471",
+  "model_patch": "",
+  "repo": "scikit-learn/scikit-learn",
+  "commit_id": "02dc9ed680e7f53f1b0d410dcdd37341c7958eb1",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/sklearn/preprocessing/_encoders.py b/sklearn/preprocessing/_encoders.py\n--- a/sklearn/preprocessing/_encoders.py\n+++ b/sklearn/preprocessing/_encoders.py\n@@ -110,7 +110,14 @@ def _transform(self, X, handle_unknown='error'):\n                     # continue `The rows are marked `X_mask` and will be\n                     # removed later.\n                     X_mask[:, i] = valid_mask\n-                    Xi = Xi.copy()\n+                    # cast Xi into the largest string type necessary\n+                    # to handle different lengths of numpy strings\n+                    if (self.categories_[i].dtype.kind in ('U', 'S')\n+                            and self.categories_[i].itemsize > Xi.itemsize):\n+                        Xi = Xi.astype(self.categories_[i].dtype)\n+                    else:\n+                        Xi = Xi.copy()\n+\n                     Xi[~valid_mask] = self.categories_[i][0]\n             _, encoded = _encode(Xi, self.categories_[i], encode=True)\n             X_int[:, i] = encoded\n",
+  "hint": ""
+}

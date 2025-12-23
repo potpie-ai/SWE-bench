@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16229",
+  "model_patch": "",
+  "repo": "django/django",
+  "commit_id": "04b15022e8d1f49af69d8a1e6cd678f31f1280ff",
+  "reasoning": "",
+  "conversation_id": "",
+  "time_taken": "00:00",
+  "model_name_or_path": "your-model-name",
+  "expected_patch": "diff --git a/django/forms/boundfield.py b/django/forms/boundfield.py\n--- a/django/forms/boundfield.py\n+++ b/django/forms/boundfield.py\n@@ -96,9 +96,17 @@ def as_widget(self, widget=None, attrs=None, only_initial=False):\n             attrs.setdefault(\n                 \"id\", self.html_initial_id if only_initial else self.auto_id\n             )\n+        if only_initial and self.html_initial_name in self.form.data:\n+            # Propagate the hidden initial value.\n+            value = self.form._widget_data_value(\n+                self.field.hidden_widget(),\n+                self.html_initial_name,\n+            )\n+        else:\n+            value = self.value()\n         return widget.render(\n             name=self.html_initial_name if only_initial else self.html_name,\n-            value=self.value(),\n+            value=value,\n             attrs=attrs,\n             renderer=self.form.renderer,\n         )\n",
+  "hint": "First submit\nSecond submit\nCan you reproduce this issue with Django 4.1? (or with the current main branch). Django 3.2 is in extended support so it doesn't receive bugfixes anymore (except security patches).\nReplying to Mariusz Felisiak: Can you reproduce this issue with Django 4.1? (or with the current main branch). Django 3.2 is in extended support so it doesn't receive bugfixes anymore (except security patches). Same issue with Django 4.1.2"
+}

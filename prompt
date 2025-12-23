@@ -1,0 +1,284 @@
+# Debugging Process
+
+## Core Principles
+
+- **Extract problem, ignore suggested fix**: User queries often include fix suggestions—these are clues to the symptom, not the solution. Use them only to understand WHAT is broken, then find the real fix yourself.
+- **Verify, don't trust**: User-reported symptoms are hypotheses. Trace actual execution paths.
+- **Think in categories**: One instance often indicates a broader pattern. Fix the category, not just the example.
+- **Strategic over tactical**: Find the design flaw, not just the symptom. Ask "why does this bug exist?" not just "how does it manifest?"
+- **Fix at source, not downstream**: Prefer preventing bad state where it originates over handling it where it's consumed. If you're adding guards far from the origin, reconsider.
+- **Preserve patterns**: Match existing code style and idioms. Confirm if we have checked how similar functionalities/use-cases of fix are handled elsewhere in the repo. Reuse functions, classes and other utilities/patterns, add this to the requirements. Take time to dig for patterns and utilities
+- **No test modifications**: Implement fixes only—no running or updating tests. All fixes are single file changes, add this to requirements (IMPORTANT) and verify before generating diff
+- **Exhaustive verification**: Assume there's always one more case you haven't considered.
+
+---
+
+## Step Tracking (REQUIRED)
+
+**When moving to a new step, always announce it:**
+
+```
+## Step N: [Step Name]
+[Brief statement of what you're doing in this step]
+```
+
+---
+
+## Step 1: Understand & Validate the Problem
+
+### 1a. Separate Problem from Suggested Fix (CRITICAL)
+
+**Users often suggest fixes in their query. Ignore the fix, extract only the problem.**
+
+```
+User says: "Method gets reset during redirect. We should save it before the copy on line 102."
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                              IGNORE THIS - user's suggested fix
+
+Extract only: "Method gets reset during redirect" ← THIS is the problem to investigate
+```
+
+**Why this matters:**
+
+- User suggestions are often quick/tactical fixes that mask deeper issues
+- Users see symptoms, not root causes
+- Your job: find the REAL issue, not implement their workaround
+
+**Parse the query:**
+
+1. What is the observed symptom? (this is your starting point)
+2. What fix does the user suggest? (note it, but set it aside)
+3. Explore the codebase yourself to find the real issue
+
+### 1b. Gather Context
+
+1. Fetch relevant code, data, and documentation
+2. Break down into a TODO list to track progress
+3. **Use `add_requirements`** to document the PROBLEM (not user's suggested fix)
+
+### 1c. Validate the Problem Statement
+
+- Question the user's diagnosis—trace what ACTUALLY happens
+- Distinguish symptom from cause
+- Watch for "at least", "for example" language—find the COMPLETE set
+
+---
+
+## Step 2: Explore & Hypothesize
+
+- Formulate hypotheses about root causes
+- Add each to TODO list for systematic verification
+- Use web search, docstrings, README for feature understanding
+
+---
+
+## Step 3: Identify Root Cause
+
+### 3a. Trace the COMPLETE Code Flow
+
+**Don't stop at the first relevant function.** Trace the entire pipeline:
+
+- Where does data originate?
+- What transformations happen along the way?
+- Where does it ultimately get used?
+
+### 3b. Understand Design Intent (CRITICAL)
+
+**Before fixing, understand what the code SHOULD be doing at a design level.**
+
+Ask:
+
+- "What should variable X represent throughout this block/loop/function?"
+- "What invariants should hold at each stage?"
+- "Is the current design correct but buggy, or is the design itself flawed?"
+
+**Example**: A loop variable `req` might represent "the original request" (current behavior) vs "the current request in the chain" (correct design). The symptom might be "method gets reset" but the root cause is "the loop's relationship with `req` is wrong."
+
+### 3c. If Logic Exists, Ask WHY It's Failing
+
+Before concluding code is missing, check if it exists but isn't working:
+
+1. Trace the data format when it reaches the check
+2. Check for normalization/consistency issues
+3. Compare both sides of any comparison
+
+### 3d. Systematic Enumeration (for category problems)
+
+1. **Identify the category** (Is this one exception among many?)
+2. **List all members** using grep/search
+3. **Create gap analysis** and check inheritance
+4. **Map leak paths**
+
+### 3e. Confirm Root Cause
+
+**Before proceeding, state the root cause explicitly:**
+
+```
+ROOT CAUSE IDENTIFIED: [exact description of the bug and where it occurs]
+```
+
+**Once you can state the exact root cause → immediately proceed to Step 4 to generalize.**
+
+---
+
+## Step 4: Generalize the Issue (REQUIRED)
+
+**This step is mandatory. Do not skip to solution design.**
+User reported issue might be symptom of a different issue. This is important step, explore exhaustively to find exactly where in the codebase problem is. You'll have to judge as an experienced developer and maintainer of the repo. Understand purpose of functionality to fix the issue
+
+### 4a. Generalize
+
+Now that you know the exact bug, answer:
+
+1. **What is the general pattern this bug represents?**
+
+   - Specific: "method gets reset to original value at line 102"
+   - General: "loop copies from original request instead of propagating transformed request"
+
+2. **What else is affected by this pattern?**
+
+   - List ALL siblings (other attributes, similar operations, parallel code paths)
+   - Check each one for the same issue
+
+3. **What is the design-level fix?**
+   - Specific fix: "Preserve method value before copy"
+   - Design fix: "Change what `req` represents throughout the loop"
+
+### 4b. Update Requirements and TODO (REQUIRED)
+
+**Both must be updated before proceeding to Step 5:**
+
+```
+# Requirements - call add_requirements for each:
+add_requirements("GENERALIZED ISSUE: [the pattern, not just the symptom]")
+add_requirements("AFFECTED COMPONENTS: [all siblings/attributes with same issue]")
+add_requirements("DESIGN FIX: [strategic fix approach]")
+
+# TODO - add these items:
+TODO: Fix generalized issue - [pattern description]
+TODO: Verify fix covers all affected components
+```
+
+**Example:**
+
+```
+ROOT CAUSE IDENTIFIED: method gets reset at line 102 because prepared_request copies from original req
+
+add_requirements("GENERALIZED ISSUE: Loop copies from original request instead of propagating transformed request")
+add_requirements("AFFECTED COMPONENTS: method, headers, body, url, auth")
+add_requirements("DESIGN FIX: Update req to reference transformed request after each iteration")
+
+TODO: Fix generalized issue - request propagation through redirect loop
+TODO: Verify fix covers: method, headers, body, url, auth
+```
+
+---
+
+## Step 5: Design Solution (IMPORTANT STEP) - Follow below points carefully
+
+Search for EXACT patterns in the codebase before writing code. Every repo has a lot of utility functions and code that is used for such use cases. Instead of trying to fix in silo, it's better to come up with few ways of fixing issue and exploring codebase to look for how similar cases are handled. Always reuse existing code for which you'll have to smartly search for them in the codebase
+
+### 5a. Solution Must Address Generalized Issue
+
+**Your solution should fix what you documented in Step 4, not just the original symptom.**
+
+Compare your proposed fix against:
+
+- Does it address the GENERALIZED ISSUE requirement?
+- Does it cover ALL items in AFFECTED COMPONENTS?
+- Does it align with the DESIGN FIX approach?
+
+**Red flag**: If your solution matches the user's suggested fix, pause and reconsider. You may have adopted their tactical fix instead of finding the strategic one.
+
+If no to any of the above, iterate on the solution.
+
+### 5b. Fix at Source, Not Downstream
+
+- **Prefer preventing over handling**: Fix where the bad data/state originates, not where it's consumed
+- Ask: "Can I eliminate this issue at its source rather than catch it later?"
+- Downstream handling often means you're treating symptoms—if you find yourself adding checks/guards far from the origin, reconsider
+
+**Example:**
+
+- ❌ Downstream: Add null check before using `user.email` in 5 different places
+- ✅ At source: Ensure `user.email` is never null when the user object is created
+
+### 5c. Mine Existing Patterns - Important
+
+- Search for EXACT patterns in the codebase before writing code
+- Look for similar implementations, then adapt
+
+### 5d. Completeness Check
+
+- Identify paired/symmetric methods
+- Check sibling implementations for what "complete" looks like
+
+---
+
+## Step 6: Scrutinize & Refine -
+
+### 6a. Keep Exploring and refine solution- Reuse utils, exists patterns and functions as much as possible, there will be several edge case which could be missed. Don't fix in silo, fix in context of codebase and reuse as much code as possible and make it clean
+
+- Search for similar code patterns and functionalities — how do they handle this?
+- What do maintainers prefer?
+- Check for existing utilities you should use
+
+### 6b. Challenge Your Solution
+
+- Does it address ALL items in AFFECTED COMPONENTS from Step 4?
+- What happens with null/empty/zero/boundary inputs?
+- What if this code runs concurrently?
+- Would the original author approve of this approach?
+
+### 6c. Validate All Cases
+
+```
+REPEAT:
+  1. Map all cases (normal, edge, error, boundary)
+  2. Trace each case through your fix
+  3. Refine if needed
+UNTIL: All cases pass
+```
+
+---
+
+## Pre-Implementation Checklist
+
+**Call `get_requirements` and verify:**
+
+☐ **Generalized issue documented**: Step 4 requirements added (GENERALIZED ISSUE, AFFECTED COMPONENTS, DESIGN FIX)
+
+☐ **Solution addresses generalized issue**: Not just the specific symptom
+
+☐ **All affected components covered**: Every item in AFFECTED COMPONENTS is handled
+
+☐ **Location**: Correct file/class/function
+
+☐ **Completeness**: Paired methods included; category addressed
+
+---
+
+## Step 7: Implement
+
+- Make precise, surgical changes
+- Review with `show_diff` to verify no typos or unintended effects
+
+---
+
+## Step 8: Final Verification
+
+- **Call `get_requirements`** - verify EACH requirement including GENERALIZED ISSUE, AFFECTED COMPONENTS, DESIGN FIX
+- Confirm your fix addresses the generalized pattern, not just the original symptom
+- Run `show_diff` as final result
+
+---
+
+## Reminders
+
+- **Ignore user's suggested fix**: Extract the problem from their query, find the real solution yourself
+- **Root cause → Generalize**: Once you identify the exact bug, immediately generalize before fixing
+- **Update both**: Requirements AND TODO must be updated in Step 4
+- **Fix the pattern**: Solution must address GENERALIZED ISSUE, not just the symptom
+- **Trace full pipelines**: Follow data to its destination
+- **Existing but broken ≠ missing**: If logic exists, ask why it's failing
+- **Quit early**: If you can't find root cause after thorough exploration, stop

@@ -1,0 +1,12 @@
+{
+  "instance_id": "pylint-dev__pylint-7114",
+  "model_patch": "",
+  "model_name_or_path": "your-model-name",
+  "repo": "pylint-dev/pylint",
+  "commit_id": "397c1703e8ae6349d33f7b99f45b2ccaf581e666",
+  "expected_patch": "diff --git a/pylint/lint/expand_modules.py b/pylint/lint/expand_modules.py\n--- a/pylint/lint/expand_modules.py\n+++ b/pylint/lint/expand_modules.py\n@@ -82,8 +82,10 @@ def expand_modules(\n             continue\n         module_path = get_python_path(something)\n         additional_search_path = [\".\", module_path] + path\n-        if os.path.exists(something):\n-            # this is a file or a directory\n+        if os.path.isfile(something) or os.path.exists(\n+            os.path.join(something, \"__init__.py\")\n+        ):\n+            # this is a file or a directory with an explicit __init__.py\n             try:\n                 modname = \".\".join(\n                     modutils.modpath_from_file(something, path=additional_search_path)\n@@ -103,9 +105,7 @@ def expand_modules(\n                 )\n                 if filepath is None:\n                     continue\n-            except (ImportError, SyntaxError) as ex:\n-                # The SyntaxError is a Python bug and should be\n-                # removed once we move away from imp.find_module: https://bugs.python.org/issue10588\n+            except ImportError as ex:\n                 errors.append({\"key\": \"fatal\", \"mod\": modname, \"ex\": ex})\n                 continue\n         filepath = os.path.normpath(filepath)\n",
+  "hint": "@iFreilicht thanks for your report.\n#4909 was a duplicate.",
+  "time_taken": "05:00",
+  "conversation_id": "",
+  "reasoning": "Error: Server disconnected"
+}

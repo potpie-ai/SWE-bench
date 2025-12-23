@@ -1,0 +1,23 @@
+diff --git a/sympy/matrices/expressions/matexpr.py b/sympy/matrices/expressions/matexpr.py
+--- a/sympy/matrices/expressions/matexpr.py
++++ b/sympy/matrices/expressions/matexpr.py
+@@ -112,6 +112,8 @@
+     @_sympifyit('other', NotImplemented)
+     @call_highest_priority('__rmul__')
+     def __matmul__(self, other):
++        if not getattr(other, 'is_Matrix', False):
++            raise ValueError("Scalar operands are not allowed, use '*' instead")
+         return MatMul(self, other).doit()
+ 
+     @_sympifyit('other', NotImplemented)
+@@ -122,7 +124,10 @@
+     @_sympifyit('other', NotImplemented)
+     @call_highest_priority('__mul__')
+     def __rmatmul__(self, other):
++        if not getattr(other, 'is_Matrix', False):
++            raise ValueError("Scalar operands are not allowed, use '*' instead")
+         return MatMul(other, self).doit()
++
+ 
+     @_sympifyit('other', NotImplemented)
+     @call_highest_priority('__rpow__')
