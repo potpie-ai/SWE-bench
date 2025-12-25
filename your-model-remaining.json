@@ -1,8 +1,8 @@
 {
   "total_instances": 300,
-  "submitted_instances": 27,
-  "completed_instances": 27,
-  "resolved_instances": 13,
+  "submitted_instances": 28,
+  "completed_instances": 28,
+  "resolved_instances": 14,
   "unresolved_instances": 14,
   "empty_patch_instances": 0,
   "error_instances": 0,
@@ -32,6 +32,7 @@
     "sphinx-doc__sphinx-8595",
     "sympy__sympy-13773",
     "sympy__sympy-15011",
+    "sympy__sympy-21379",
     "sympy__sympy-22005",
     "sympy__sympy-24066"
   ],
@@ -295,7 +296,6 @@
     "sympy__sympy-20639",
     "sympy__sympy-21055",
     "sympy__sympy-21171",
-    "sympy__sympy-21379",
     "sympy__sympy-21612",
     "sympy__sympy-21614",
     "sympy__sympy-21627",
@@ -337,6 +337,7 @@
     "sphinx-doc__sphinx-8595",
     "sympy__sympy-13773",
     "sympy__sympy-15011",
+    "sympy__sympy-21379",
     "sympy__sympy-22005",
     "sympy__sympy-24066"
   ],
@@ -349,10 +350,11 @@
     "django__django-13925",
     "django__django-15213",
     "mwaskom__seaborn-3190",
-    "psf__requests-2148",
+    "psf__requests-1963",
     "scikit-learn__scikit-learn-25570",
     "sympy__sympy-13773",
     "sympy__sympy-15011",
+    "sympy__sympy-21379",
     "sympy__sympy-24066"
   ],
   "unresolved_ids": [
@@ -364,7 +366,7 @@
     "matplotlib__matplotlib-23476",
     "matplotlib__matplotlib-23563",
     "matplotlib__matplotlib-23987",
-    "psf__requests-1963",
+    "psf__requests-2148",
     "psf__requests-2674",
     "pylint-dev__pylint-7080",
     "scikit-learn__scikit-learn-25747",

@@ -90,9 +90,9 @@ def main():
     script_dir = Path(__file__).parent
     results_dir = script_dir / "results"
 
-    compiled_path = results_dir / "compiled_merged.json"
-    resolved_path = results_dir / "compiled_last10.json"
-    output_path = results_dir / "compiled_final.json"
+    compiled_path = results_dir / "compiled_final_again.json"
+    resolved_path = results_dir / "compiled_last10_again.json"
+    output_path = results_dir / "compiled_final_again.json"
 
     # Allow custom paths via command line arguments
     if len(sys.argv) >= 2:

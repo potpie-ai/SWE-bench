@@ -14,7 +14,7 @@ from agent import PotpieAgentExecutor
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "evals_remaining"
+DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "evalr"
 DEFAULT_ENV_FILE = Path(".env")
 
 
@@ -429,7 +429,7 @@ async def process_instances(args: argparse.Namespace) -> None:
     )
 
     args.instance_ids = [
-        "sympy__sympy-21379",
+        "pylint-dev__pylint-6506",
     ]
 
     # Filter by instance_ids if provided

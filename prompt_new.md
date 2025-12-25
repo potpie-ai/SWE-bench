@@ -8,6 +8,7 @@
 - **Strategic over tactical**: Find the design flaw, not just the symptom. Ask "why does this bug exist?" not just "how does it manifest?"
 - **Fix at source, not downstream, don't patch the problem instead make sure it doesn't happen**: Prefer preventing bad state where it originates over handling it where it's consumed. If you're adding guards far from the origin, reconsider. This is very important part of the process
 - **Preserve patterns**: Match existing code style and idioms. Confirm if we have checked how similar functionalities/use-cases of fix are handled elsewhere in the repo. Reuse functions, classes and other utilities/patterns, add this to the requirements. Take time to dig for patterns and utilities
+- **Trace before fixing**: Map complete upstream (origin) and downstream (consumers) flow. Identify ALL candidate fix locations, then choose the one that prevents rather than handles, protects the most code paths, and aligns with component responsibilities.
 - **No test modifications**: Implement fixes only—no running or updating tests. All fixes are single file changes, add this to requirements (IMPORTANT) and verify before generating diff
 - **Exhaustive verification**: Assume there's always one more case you haven't considered.
 
@@ -74,23 +75,41 @@ Extract only: "Method gets reset during redirect" ← THIS is the problem to inv
 
 ## Step 3: Identify Root Cause
 
-### 3a. Trace the COMPLETE Code Flow
+### 3a. Trace the COMPLETE Code Flow (Upstream and Downstream)
 
-**Don't stop at the first relevant function.** Trace the entire pipeline:
+**Don't stop at the first relevant function.** Map the full data/control flow:
 
-- Where does data originate?
-- What transformations happen along the way?
-- Where does it ultimately get used?
+**Upstream Tracing (Callers):**
 
-### 3b. Understand Design Intent (CRITICAL)
+- Who calls this function/method? Trace back to the origin of the data/state
+- What state/assumptions do callers have when they invoke this?
+- Where does the "bad state" first get introduced?
+- Keep asking: "But where does THIS value come from?" until you hit the origin
 
-**Before fixing, understand what the code SHOULD be doing at a design level.**
+**Downstream Tracing (Consumers):**
 
-Ask:
+- What consumes the output of this code?
+- What assumptions do downstream components make?
+- If I fix here, what downstream effects occur?
 
-- "What should variable X represent throughout this block/loop/function?"
-- "What invariants should hold at each stage?"
-- "Is the current design correct but buggy, or is the design itself flawed?"
+**Map the Contract Boundaries:**
+
+```
+ORIGIN → [transform] → [transform] → SYMPTOM LOCATION → [transform] → CONSUMER
+   ^                         ^                ^                           ^
+   Where should              Current          Where user                  What breaks
+   fix actually be?          bug location     sees problem                if we patch here?
+```
+
+**Document your trace:**
+
+```
+TRACE COMPLETE:
+- Origin of bad state: [where the problematic value/state is first created]
+- Propagation path: [how it flows through the system]
+- Symptom location: [where the bug manifests]
+- Consumer impact: [what relies on this being correct]
+```
 
 **Example**: A loop variable `req` might represent "the original request" (current behavior) vs "the current request in the chain" (correct design). The symptom might be "method gets reset" but the root cause is "the loop's relationship with `req` is wrong."
 
@@ -144,7 +163,68 @@ Now that you know the exact bug, answer:
    - Specific fix: "Preserve method value before copy"
    - Design fix: "Change what `req` represents throughout the loop"
 
-### 4b. Update Requirements and TODO (REQUIRED)
+### 4b. Determine Optimal Fix Location (CRITICAL - DO NOT SKIP)
+
+**Now that you understand the generalized issue, you must decide WHERE to fix it.**
+
+**List All Candidate Fix Locations:**
+Based on your trace from Step 3a, identify every point where you COULD apply a fix:
+
+1. Origin point (where bad state is created)
+2. Intermediate transformation points
+3. Symptom location (where bug manifests)
+4. Consumer/guard points (defensive checks)
+
+**Evaluate Each Location - Ask These Questions:**
+
+| Question                                       | Origin Fix      | Symptom Fix    | Guard Fix          |
+| ---------------------------------------------- | --------------- | -------------- | ------------------ |
+| Does it prevent the problem or just handle it? | Prevents        | Handles        | Handles            |
+| How many code paths does it protect?           | All downstream  | Just this path | Just this consumer |
+| If requirements change, where would devs look? | ✓ Natural place | Surprising     | Surprising         |
+| Does it match how similar issues are handled?  | Check patterns  | Check patterns | Check patterns     |
+
+**Maintainer Mindset Evaluation:**
+For each candidate location, answer:
+
+1. "If a new developer reads this fix in 6 months, will the intent be clear?"
+2. "If I fix here, how many other places still need to 'know' about this edge case?"
+3. "Does this location have the right 'responsibility' for this concern?"
+4. "Am I adding knowledge about X to a component that shouldn't need to know about X?"
+
+**Fix Location Decision Framework:**
+
+```
+PREFER (in order):
+1. Origin fix - Prevent bad state from being created
+   → "Make it impossible to create invalid state"
+
+2. Transformation fix - Correct during natural data transformation
+   → "Fix where data is already being processed"
+
+3. Boundary fix - Validate at API/module boundaries
+   → "Enforce contracts where they're defined"
+
+AVOID:
+4. Symptom fix - Patch where the problem manifests
+   → Usually means you're handling instead of preventing
+
+5. Consumer guard - Add checks in every consumer
+   → Red flag: you're spreading knowledge of a problem across the codebase
+```
+
+**Document Your Decision:**
+
+```
+FIX LOCATION DECISION:
+- Chosen location: [file:line or function name]
+- Why this location: [specific reasoning]
+- Why NOT symptom location: [what's wrong with patching there]
+- Why NOT consumer guards: [why spreading checks is worse]
+- Responsibility alignment: [why this component SHOULD handle this]
+```
+
+### 4c. Update Requirements and TODO (REQUIRED)
 
 **Both must be updated before proceeding to Step 5:**
 
@@ -178,19 +258,34 @@ TODO: Verify fix covers: method, headers, body, url, auth
 
 Search for EXACT patterns in the codebase before writing code. Every repo has a lot of utility functions and code that is used for such use cases. Instead of trying to fix in silo, it's better to come up with few ways of fixing issue and exploring codebase to look for how similar cases are handled. Always reuse existing code for which you'll have to smartly search for them in the codebase
 
-### 5a. Solution Must Address Generalized Issue
+### 5a. Validate Solution Against Location Decision
 
-**Your solution should fix what you documented in Step 4, not just the original symptom.**
+**Before designing the solution, verify your fix location choice:**
 
-Compare your proposed fix against:
+Cross-check against your Step 4b decision:
 
-- Does it address the GENERALIZED ISSUE requirement?
-- Does it cover ALL items in AFFECTED COMPONENTS?
-- Does it align with the DESIGN FIX approach?
+- [ ] Am I still fixing at the location I chose, or did I drift to a symptom fix?
+- [ ] Does my solution PREVENT the bad state, or just HANDLE it?
+- [ ] How many code paths does my fix protect? (More = better location choice)
 
-**Red flag**: If your solution matches the user's suggested fix, pause and reconsider. You may have adopted their tactical fix instead of finding the strategic one.
+**The "Spreading Knowledge" Test:**
+After your fix, ask: "Does any OTHER code still need to know about this edge case?"
 
-If no to any of the above, iterate on the solution.
+- If YES → You may be fixing too far downstream. Reconsider origin.
+- If NO → Good. You've contained the fix at the right level.
+
+**The "Future Bug" Test:**
+"If someone adds a new caller/consumer of this code, will they automatically get the fix?"
+
+- If YES → You're fixing at the right level
+- If NO → You're patching a symptom; go upstream
+
+**Red Flags - Reconsider Your Approach If:**
+
+- Your fix matches the user's originally suggested fix (likely tactical, not strategic)
+- You're adding null checks, guards, or special-case handling far from data origin
+- Multiple components need to "know" about this fix
+- You're checking for a condition that "shouldn't happen" (fix why it happens instead)
 
 ### 5b. Fix at Source, Not Downstream
 
@@ -255,6 +350,14 @@ UNTIL: All cases pass
 ☐ **Location**: Correct file/class/function
 
 ☐ **Completeness**: Paired methods included; category addressed
+
+☐ **Fix location justified**: Step 4b decision documented with reasoning
+
+☐ **Origin considered**: Explained why fix isn't at origin if not fixing there
+
+☐ **Not spreading knowledge**: No other code needs to know about this edge case after fix
+
+☐ **Future-proof**: New callers/consumers automatically get the fix
 
 ---
 

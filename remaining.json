@@ -48,7 +48,7 @@
   "django__django-13321",
   "django__django-13448",
   "django__django-13768",
-  "django__django-14017",
+  "django__django-14017", // did
   "django__django-14155",
   "django__django-14667",
   "django__django-14730",
@@ -125,7 +125,7 @@
   "sympy__sympy-19487",
   "sympy__sympy-20639",
   "sympy__sympy-21171",
-  "sympy__sympy-21379",
+  // "sympy__sympy-21379", done
   "sympy__sympy-21612",
   "sympy__sympy-21627",
   "sympy__sympy-22005",

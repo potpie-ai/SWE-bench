@@ -104,7 +104,7 @@ def main() -> None:
     parser.add_argument(
         "--evals-dir",
         type=Path,
-        default=Path(__file__).parent / "evals_remaining",
+        default=Path(__file__).parent / "evals_resolved",
         help="Directory containing evaluation JSON files (default: ./evals)",
     )
     parser.add_argument(
